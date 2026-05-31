@@ -609,6 +609,20 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     // hide the whole line otherwise.
     toggle_line("gyroid_optimized", have_infill && pattern == ipGyroid);
 
+    // Custom scriptable infill: show its settings only for the Custom pattern,
+    // and split 2D-tile vs 3D-volume keys by the selected mode.
+    bool have_custom_infill = have_infill && pattern == ipCustomScripted;
+    CustomInfillMode custom_mode = config->opt_enum<CustomInfillMode>("custom_infill_mode");
+    bool custom_tile2d   = have_custom_infill && custom_mode == cimTile2D;
+    bool custom_volume3d = have_custom_infill && custom_mode == cimVolume3D;
+    toggle_line("custom_infill_mode",        have_custom_infill);
+    toggle_line("custom_infill_pattern_id",  have_custom_infill);
+    toggle_line("custom_infill_tile_width",  custom_tile2d);
+    toggle_line("custom_infill_tile_height", custom_tile2d);
+    toggle_line("custom_infill_volume_cell", custom_volume3d);
+    toggle_line("custom_infill_level",       custom_volume3d);
+    toggle_line("custom_infill_thickness",   custom_volume3d);
+
     // If there is infill, enable/disable fill_multiline according to whether the pattern supports multiline infill.
     if (have_infill) {
         toggle_field("fill_multiline", have_multiline_infill_pattern);

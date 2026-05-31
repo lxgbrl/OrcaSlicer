@@ -1,0 +1,12 @@
+# Custom infill 2D tile: rectilinear-equivalent.
+# A single horizontal line spanning the tile width. Tiled across columns the
+# lines join end-to-end; serpentine reverses alternate rows so the toolpath
+# chains continuously. Row pitch = tile height (2 mm here).
+#
+# Format:
+#   TILE <width_mm> <height_mm>
+#   MODE serpentine
+#   PATH x1,y1 x2,y2 ...        (mm, tile-local; multiple PATH lines allowed)
+TILE 10 2
+MODE serpentine
+PATH 0,1 10,1

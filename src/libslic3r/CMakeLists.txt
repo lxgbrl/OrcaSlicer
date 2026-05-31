@@ -151,6 +151,10 @@ set(lisbslic3r_sources
     Fill/Fill.cpp
     Fill/FillCrossHatch.cpp
     Fill/FillCrossHatch.hpp
+    Fill/FillCustomScripted.cpp
+    Fill/FillCustomScripted.hpp
+    Fill/CustomInfillPattern.cpp
+    Fill/CustomInfillPattern.hpp
     Fill/FillGyroid.cpp
     Fill/FillGyroid.hpp
     Fill/FillHoneycomb.cpp

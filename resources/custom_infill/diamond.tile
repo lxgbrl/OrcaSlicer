@@ -1,0 +1,5 @@
+# Custom infill 2D tile: diamond / rotated-square decorative pattern.
+# A closed diamond inscribed in each 10 mm cell.
+TILE 10 10
+MODE serpentine
+PATH 5,0 10,5 5,10 0,5 5,0

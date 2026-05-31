@@ -2468,6 +2468,14 @@ void TabPrint::build()
         optgroup->append_single_option_line("sparse_infill_density", "strength_settings_infill#sparse-infill-density");
         optgroup->append_single_option_line("fill_multiline", "strength_settings_infill#fill-multiline");
         optgroup->append_single_option_line("sparse_infill_pattern", "strength_settings_infill#sparse-infill-pattern");
+        // Custom scriptable infill (visibility gated in toggle_options()).
+        optgroup->append_single_option_line("custom_infill_mode");
+        optgroup->append_single_option_line("custom_infill_pattern_id");
+        optgroup->append_single_option_line("custom_infill_tile_width");
+        optgroup->append_single_option_line("custom_infill_tile_height");
+        optgroup->append_single_option_line("custom_infill_volume_cell");
+        optgroup->append_single_option_line("custom_infill_level");
+        optgroup->append_single_option_line("custom_infill_thickness");
         optgroup->append_single_option_line("gyroid_optimized", "strength_settings_patterns#gyroid-optimized");
         optgroup->append_single_option_line("infill_direction", "strength_settings_infill#direction");
         optgroup->append_single_option_line("sparse_infill_rotate_template", "strength_settings_infill_rotation_template_metalanguage");

@@ -250,9 +250,16 @@ static t_config_enum_values s_keys_map_InfillPattern {
     { "concentric", ipConcentric },
     { "hilbertcurve", ipHilbertCurve },
     { "archimedeanchords", ipArchimedeanChords },
-    { "octagramspiral", ipOctagramSpiral }
+    { "octagramspiral", ipOctagramSpiral },
+    { "customscripted", ipCustomScripted }
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(InfillPattern)
+
+static t_config_enum_values s_keys_map_CustomInfillMode {
+    { "tile2d",   cimTile2D },
+    { "volume3d", cimVolume3D }
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(CustomInfillMode)
 
 static t_config_enum_values s_keys_map_IroningType {
     { "no ironing",     int(IroningType::NoIroning) },
@@ -2989,6 +2996,7 @@ void PrintConfigDef::init_fff_params()
     def->enum_values.push_back("hilbertcurve");
     def->enum_values.push_back("archimedeanchords");
     def->enum_values.push_back("octagramspiral");
+    def->enum_values.push_back("customscripted");
     def->enum_labels.push_back(L("Rectilinear"));
     def->enum_labels.push_back(L("Aligned Rectilinear"));
     def->enum_labels.push_back(L("Zig Zag"));
@@ -3015,7 +3023,74 @@ void PrintConfigDef::init_fff_params()
     def->enum_labels.push_back(L("Hilbert Curve"));
     def->enum_labels.push_back(L("Archimedean Chords"));
     def->enum_labels.push_back(L("Octagram Spiral"));
+    def->enum_labels.push_back(L("Custom (scripted)"));
     def->set_default_value(new ConfigOptionEnum<InfillPattern>(ipCrossHatch));
+
+    // ---- Custom scriptable infill (FillCustomScripted) ----
+    def = this->add("custom_infill_mode", coEnum);
+    def->label = L("Custom infill mode");
+    def->category = L("Strength");
+    def->tooltip = L("Selects how the custom (scripted) infill is generated: a 2D periodic tile loaded from a "
+                     ".tile file, or a 3D implicit/TPMS field sampled per layer.");
+    def->mode = comAdvanced;
+    def->enum_keys_map = &ConfigOptionEnum<CustomInfillMode>::get_enum_values();
+    def->enum_values.push_back("tile2d");
+    def->enum_values.push_back("volume3d");
+    def->enum_labels.push_back(L("2D Tile"));
+    def->enum_labels.push_back(L("3D Volume"));
+    def->set_default_value(new ConfigOptionEnum<CustomInfillMode>(cimTile2D));
+
+    def = this->add("custom_infill_pattern_id", coString);
+    def->label = L("Custom infill pattern");
+    def->category = L("Strength");
+    def->tooltip = L("Identifier of the custom infill pattern. For 2D Tile mode this resolves to a .tile file; "
+                     "for 3D Volume mode it resolves to a parametric pattern config (e.g. gyroid_medium). "
+                     "Patterns are looked up in the bundled resources/custom_infill folder and the user config folder.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionString("rectilinear"));
+
+    def = this->add("custom_infill_tile_width", coFloat);
+    def->label = L("Custom tile width");
+    def->category = L("Strength");
+    def->tooltip = L("Base tile width in mm for 2D Tile mode. May be overridden by the TILE header inside the .tile file.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10.0));
+
+    def = this->add("custom_infill_tile_height", coFloat);
+    def->label = L("Custom tile height");
+    def->category = L("Strength");
+    def->tooltip = L("Base tile height in mm for 2D Tile mode. May be overridden by the TILE header inside the .tile file.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10.0));
+
+    def = this->add("custom_infill_volume_cell", coFloat);
+    def->label = L("Custom cell size");
+    def->category = L("Strength");
+    def->tooltip = L("Periodic cell size in mm for 3D Volume mode (gyroid/TPMS). Smaller values make a finer lattice.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(6.0));
+
+    def = this->add("custom_infill_level", coFloat);
+    def->label = L("Custom iso level");
+    def->category = L("Strength");
+    def->tooltip = L("Level-set threshold for 3D Volume mode. The iso-contour f(x,y,z)=level is extracted on each layer.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.0));
+
+    def = this->add("custom_infill_thickness", coFloat);
+    def->label = L("Custom wall thickness");
+    def->category = L("Strength");
+    def->tooltip = L("Nominal wall thickness in mm for 3D Volume patterns. Reserved for double-walled/solidified TPMS variants.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.6));
 
     def           = this->add("lateral_lattice_angle_1", coFloat);
     def->label    = L("Lateral lattice angle 1");

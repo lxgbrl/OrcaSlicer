@@ -94,7 +94,14 @@ enum InfillPattern : int {
     ipCrossHatch, ipTpmsD, ipTpmsFK, ipGyroid,
     ipConcentric, ipHilbertCurve, ipArchimedeanChords, ipOctagramSpiral,
     ipSupportBase, ipConcentricInternal,
+    ipCustomScripted,
     ipCount,
+};
+
+// Mode for the scriptable custom infill engine (FillCustomScripted).
+enum CustomInfillMode {
+    cimTile2D,    // 2D periodic tile loaded from a .tile file
+    cimVolume3D,  // 3D implicit/TPMS field sampled per layer into iso-contours
 };
 
 enum class IroningType {
@@ -1100,6 +1107,14 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionString,               sparse_infill_rotate_template))
     ((ConfigOptionPercent,              sparse_infill_density))
     ((ConfigOptionEnum<InfillPattern>,  sparse_infill_pattern))
+    // Custom scriptable infill (FillCustomScripted) -- only used when sparse_infill_pattern == ipCustomScripted.
+    ((ConfigOptionEnum<CustomInfillMode>, custom_infill_mode))
+    ((ConfigOptionString,               custom_infill_pattern_id))
+    ((ConfigOptionFloat,                custom_infill_tile_width))
+    ((ConfigOptionFloat,                custom_infill_tile_height))
+    ((ConfigOptionFloat,                custom_infill_volume_cell))
+    ((ConfigOptionFloat,                custom_infill_level))
+    ((ConfigOptionFloat,                custom_infill_thickness))
     ((ConfigOptionFloat,                lateral_lattice_angle_1))
     ((ConfigOptionFloat,                lateral_lattice_angle_2))
     ((ConfigOptionFloat,                infill_overhang_angle))

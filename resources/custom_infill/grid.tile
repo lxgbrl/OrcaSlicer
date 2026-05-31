@@ -1,0 +1,6 @@
+# Custom infill 2D tile: grid (crossed lines).
+# Two perpendicular lines per 10 mm cell -> grid pattern when tiled.
+TILE 10 10
+MODE serpentine
+PATH 0,5 10,5
+PATH 5,0 5,10

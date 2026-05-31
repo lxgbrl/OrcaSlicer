@@ -1,0 +1,13 @@
+{
+  "_comment": "Optional registry of bundled custom infill patterns. The slicer resolves a custom_infill_pattern_id directly to a file in this folder, so this index is informational/for tooling only.",
+  "tile2d": [
+    { "id": "rectilinear", "file": "rectilinear.tile", "desc": "Rectilinear-equivalent horizontal lines." },
+    { "id": "grid",        "file": "grid.tile",        "desc": "Crossed grid lines." },
+    { "id": "diamond",     "file": "diamond.tile",     "desc": "Decorative inscribed diamond." }
+  ],
+  "volume3d": [
+    { "id": "gyroid_light",  "file": "gyroid_light.json",  "desc": "Sparse gyroid, large cell." },
+    { "id": "gyroid_medium", "file": "gyroid_medium.json", "desc": "Default gyroid." },
+    { "id": "schwarzp_dense","file": "schwarzp_dense.json","desc": "Dense Schwarz P lattice." }
+  ]
+}
