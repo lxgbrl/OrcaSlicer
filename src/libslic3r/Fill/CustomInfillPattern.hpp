@@ -6,8 +6,11 @@
 #include <map>
 #include <mutex>
 
+#include <memory>
+
 #include "../libslic3r.h"
 #include "../Polyline.hpp"
+#include "ImplicitExpr.hpp"
 
 namespace Slic3r {
 
@@ -24,7 +27,9 @@ struct TilePattern
 };
 
 // Implicit-surface family for the 3D volumetric mode.
-enum class VolumeType { Gyroid, SchwarzP };
+//   Gyroid / SchwarzP : built-in TPMS families.
+//   Expr              : user formula f(x,y,z,t) (incl. imported MathMod Iso3D).
+enum class VolumeType { Gyroid, SchwarzP, Expr };
 
 // A 3D volumetric / TPMS pattern definition loaded from a parametric config
 // (JSON or simple INI-like text).
@@ -35,6 +40,14 @@ struct VolumePattern
     double     level         = 0.0;   // iso-contour threshold
     double     thickness     = 0.6;   // nominal wall thickness (mm), reserved
     double     density_scale = 1.0;   // multiplier applied to config density
+
+    // Expr-only: compiled formula and the per-cell coordinate domain that the
+    // cell (size cell_size) is mapped onto, plus the fixed animation parameter.
+    std::shared_ptr<const ImplicitExpr> expr;
+    double     domain_min = -3.14159265358979323846;
+    double     domain_max =  3.14159265358979323846;
+    double     t          = 0.0;
+
     bool       valid = false;
 };
 

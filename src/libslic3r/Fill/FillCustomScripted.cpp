@@ -28,26 +28,49 @@ using Pointf   = Vec2d;
 
 struct TpmsField
 {
-    static constexpr float gsizef = 0.40f;
-    static constexpr float rsizef = 0.004f;
-    const coord_t          rsize  = scaled(rsizef);
-    const coordr_t         gsize  = std::round(gsizef / rsizef);
+    coord_t                rsize;       // raster step in scaled coords
+    coordr_t               gsize;       // marching-squares window (in raster cells)
     Point                  size;
     Point                  offs;
     coordf_t               z;
-    float                  freq;       // angular frequency = 2*pi / cell
+    float                  freq;        // angular frequency = 2*pi / cell (periodic families)
     float                  isoval;
     VolumeType             type;
+    double                 cell;        // cell size (mm), for Expr tiling
+    double                 dmin, dmax;  // Expr per-cell coordinate domain
+    double                 tval;        // Expr animation parameter
+    const ImplicitExpr*    expr = nullptr;
 
-    TpmsField(const BoundingBox bb, const coordf_t z, const double cell, const double level, VolumeType type)
-        : size{bb.size()}, offs{bb.min}, z{z}, type{type}
+    TpmsField(const BoundingBox bb, const coordf_t z, const double cell, const double level,
+              const VolumePattern& vp)
+        : size{bb.size()}, offs{bb.min}, z{z}, type{vp.type}, cell{cell},
+          dmin{vp.domain_min}, dmax{vp.domain_max}, tval{vp.t}, expr{vp.expr.get()}
     {
         freq   = float(2.0 * PI) / float(std::max(cell, 1e-3));
         isoval = float(level);
+        // Raster resolution: fine fixed step for the analytic families; for Expr
+        // tie it to the cell so heavy formulas stay affordable (~24 samples/cell).
+        const float rsizef = (type == VolumeType::Expr)
+            ? float(std::max(cell / 24.0, 0.05)) : 0.004f;
+        rsize = scaled(rsizef);
+        gsize = std::max<coordr_t>(2, coordr_t(std::round(0.40f / rsizef)));
+    }
+
+    // Map a world coordinate (mm) into the formula's per-cell domain for Expr.
+    inline double map_expr(double w) const
+    {
+        const double c = cell > 1e-6 ? cell : 1.0;
+        const double loc = w - c * std::floor(w / c);
+        return dmin + (loc / c) * (dmax - dmin);
     }
 
     float get_scalar(coordf_t x, coordf_t y, coordf_t z_arg) const
     {
+        if (type == VolumeType::Expr && expr) {
+            double v = expr->eval(map_expr(x), map_expr(y), map_expr(z_arg), tval);
+            if (! std::isfinite(v)) v = isoval + 1.0; // push non-finite outside the iso band
+            return float(v);
+        }
         const float a = freq * float(x);
         const float b = freq * float(y);
         const float c = freq * float(z_arg);
@@ -158,13 +181,20 @@ Polylines FillCustomScripted::fill_volume_3d(const FillParams& params, const ExP
 
     const VolumePattern& vp = PatternManager::instance().get_volume_pattern(id);
 
+    // Base cell: GUI "Custom cell size" overrides the pattern file when set (>0).
+    double base_cell = vp.cell_size;
+    if (cfg && cfg->custom_infill_volume_cell.value > 0.0)
+        base_cell = cfg->custom_infill_volume_cell.value;
+
     // Density -> lattice fineness. Denser prints use a smaller effective cell so
     // more iso-contours cross the region. Bounded to keep raster cost sane.
     const double density = std::clamp(double(params.density), 0.01, 1.0);
     const double scale_f = std::clamp(std::sqrt(density * std::max(vp.density_scale, 1e-3) * 2.0), 0.25, 4.0);
-    const double eff_cell = std::max(vp.cell_size / scale_f, 0.2);
+    const double eff_cell = std::max(base_cell / scale_f, 0.2);
 
-    marchsq::TpmsField sf(bb, this->z, eff_cell, vp.level, vp.type);
+    const double level = (cfg ? double(cfg->custom_infill_level.value) : vp.level);
+
+    marchsq::TpmsField sf(bb, this->z, eff_cell, level, vp);
     return marchsq::get_tpms_polylines(sf, SCALED_SPARSE_INFILL_RESOLUTION);
 }
 

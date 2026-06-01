@@ -6,6 +6,7 @@
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Fill/Fill.hpp"
 #include "libslic3r/Fill/CustomInfillPattern.hpp"
+#include "libslic3r/Fill/ImplicitExpr.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/Surface.hpp"
 #include "libslic3r/libslic3r.h"
@@ -97,6 +98,65 @@ TEST_CASE("CustomInfill: 2D tile mode produces polylines inside region", "[Custo
             REQUIRE(pt.y() >= bb.min.y() - SCALED_EPSILON);
             REQUIRE(pt.y() <= bb.max.y() + SCALED_EPSILON);
         }
+}
+
+TEST_CASE("CustomInfill: ImplicitExpr basic formula", "[CustomInfill]")
+{
+    ImplicitExpr e;
+    std::string err;
+    REQUIRE(e.compile_formula("x*x + y*y + z*z - 1", {}, err));
+    REQUIRE(e.valid());
+    REQUIRE_THAT(e.eval(0, 0, 0), WithinAbs(-1.0, 1e-9));
+    REQUIRE_THAT(e.eval(1, 0, 0), WithinAbs(0.0, 1e-9));
+    REQUIRE_THAT(e.eval(1, 1, 1), WithinAbs(2.0, 1e-9));
+}
+
+TEST_CASE("CustomInfill: ImplicitExpr consts, builtins, if/min", "[CustomInfill]")
+{
+    ImplicitExpr e;
+    std::string err;
+    REQUIRE(e.compile_formula("if(x<0, min(k, y), max(k, y))", {"k=3/2"}, err));
+    REQUIRE_THAT(e.eval(-1, 5, 0), WithinAbs(1.5, 1e-9)); // x<0 -> min(1.5,5)
+    REQUIRE_THAT(e.eval( 1, 0, 0), WithinAbs(1.5, 1e-9)); // x>=0 -> max(1.5,0)
+}
+
+TEST_CASE("CustomInfill: ImplicitExpr MathMod function composition + redefinition", "[CustomInfill]")
+{
+    // Schwarz(R(x),R(y),R(z)); R rebinds first arg to x. Then redefine to add 1.
+    ImplicitExpr e;
+    std::string err;
+    std::vector<std::string> funct = {
+        "R = 2*x",
+        "Schwarz = cos(x)+cos(y)+cos(z)",
+        "F = Schwarz(R(x,y,z,t), R(y,x,z,t), R(z,x,y,t), t)",
+        "F = F(x,y,z,t) + 1"
+    };
+    REQUIRE(e.compile({}, funct, "F(x,y,z,t)", err));
+    // F = cos(2x)+cos(2y)+cos(2z) + 1 ; at 0 -> 3 + 1 = 4
+    REQUIRE_THAT(e.eval(0, 0, 0), WithinAbs(4.0, 1e-9));
+}
+
+TEST_CASE("CustomInfill: 3D expr volume mode produces polylines", "[CustomInfill]")
+{
+    std::unique_ptr<Fill> filler(Fill::new_from_type(ipCustomScripted));
+    filler->spacing = 0.45;
+    filler->z       = 1.0;
+
+    PrintRegionConfig cfg;
+    cfg.custom_infill_mode.value        = cimVolume3D;
+    cfg.custom_infill_pattern_id.value  = "expr_gyroid"; // bundled type:expr preset (or fallback)
+    cfg.custom_infill_volume_cell.value = 6.0;
+
+    FillParams fp;
+    fp.density = 0.3f;
+    fp.config  = &cfg;
+
+    ExPolygon region = square_region();
+    Surface surface(stInternal, region);
+    Polylines out = filler->fill_surface(&surface, fp);
+    // expr_gyroid resolves only if resources are present; engine falls back to a
+    // default gyroid otherwise. Either way we expect a non-empty result.
+    REQUIRE_FALSE(out.empty());
 }
 
 TEST_CASE("CustomInfill: 3D gyroid volume mode produces polylines", "[CustomInfill]")

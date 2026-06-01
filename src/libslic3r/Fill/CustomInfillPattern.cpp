@@ -6,12 +6,51 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/log/trivial.hpp>
 
 #include "nlohmann/json.hpp"
 
 #include "../Utils.hpp"
 
 namespace Slic3r {
+
+// Import a MathMod "Iso3D" block into a VolumePattern (type Expr).
+static bool parse_mathmod_iso3d(const nlohmann::json& iso, VolumePattern& out)
+{
+    auto arr = [](const nlohmann::json& j, const char* k) -> std::vector<std::string> {
+        std::vector<std::string> v;
+        if (j.contains(k))
+            for (const auto& e : j[k]) v.push_back(e.get<std::string>());
+        return v;
+    };
+    std::vector<std::string> consts = arr(iso, "Const");
+    std::vector<std::string> funct  = arr(iso, "Funct");
+    std::vector<std::string> fxyzv  = arr(iso, "Fxyz");
+    if (fxyzv.empty())
+        return false;
+
+    auto expr = std::make_shared<ImplicitExpr>();
+    std::string err;
+    if (! expr->compile(consts, funct, fxyzv.front(), err)) {
+        BOOST_LOG_TRIVIAL(error) << "custom_infill MathMod compile failed: " << err;
+        return false;
+    }
+    out.type = VolumeType::Expr;
+    out.expr = expr;
+
+    // Domain box (Xmin/Xmax may be expressions in the declared consts).
+    auto eval_one = [&consts](const std::string& s, double def) -> double {
+        ImplicitExpr e; std::string er;
+        return e.compile_formula(s, consts, er) ? e.eval(0, 0, 0, 0) : def;
+    };
+    std::vector<std::string> xmin = arr(iso, "Xmin"), xmax = arr(iso, "Xmax");
+    if (! xmin.empty() && ! xmax.empty()) {
+        out.domain_min = eval_one(xmin.front(), out.domain_min);
+        out.domain_max = eval_one(xmax.front(), out.domain_max);
+    }
+    out.valid = true;
+    return true;
+}
 
 PatternManager& PatternManager::instance()
 {
@@ -134,6 +173,8 @@ bool PatternManager::parse_volume_config(const std::string& path, VolumePattern&
         boost::to_lower(t);
         if (t == "schwarzp" || t == "schwarz_p" || t == "schwarz-p" || t == "p")
             out.type = VolumeType::SchwarzP;
+        else if (t == "expr" || t == "mathmod" || t == "formula")
+            out.type = VolumeType::Expr;
         else
             out.type = VolumeType::Gyroid;
     };
@@ -142,11 +183,32 @@ bool PatternManager::parse_volume_config(const std::string& path, VolumePattern&
         try {
             nlohmann::json j;
             in >> j;
+            // MathMod Iso3D export: { "Iso3D": { Const[], Funct[], Fxyz[], Xmin/Xmax... } }
+            if (j.contains("Iso3D"))
+                return parse_mathmod_iso3d(j["Iso3D"], out);
+
             if (j.contains("type"))          set_type(j["type"].get<std::string>());
             if (j.contains("cell_size"))     out.cell_size     = j["cell_size"].get<double>();
             if (j.contains("level"))         out.level         = j["level"].get<double>();
             if (j.contains("thickness"))     out.thickness     = j["thickness"].get<double>();
             if (j.contains("density_scale")) out.density_scale = j["density_scale"].get<double>();
+            if (j.contains("domain_min"))    out.domain_min    = j["domain_min"].get<double>();
+            if (j.contains("domain_max"))    out.domain_max    = j["domain_max"].get<double>();
+            if (j.contains("t"))             out.t             = j["t"].get<double>();
+
+            if (out.type == VolumeType::Expr) {
+                std::vector<std::string> consts;
+                if (j.contains("consts"))
+                    for (const auto& c : j["consts"]) consts.push_back(c.get<std::string>());
+                std::string formula = j.contains("formula") ? j["formula"].get<std::string>() : std::string();
+                auto expr = std::make_shared<ImplicitExpr>();
+                std::string err;
+                if (formula.empty() || ! expr->compile_formula(formula, consts, err)) {
+                    BOOST_LOG_TRIVIAL(error) << "custom_infill expr compile failed: " << err;
+                    return false;
+                }
+                out.expr = expr;
+            }
             out.valid = true;
         } catch (...) {
             return false;
