@@ -612,7 +612,10 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     // Custom scriptable infill: show its settings only for the Custom pattern,
     // and split 2D-tile vs 3D-volume keys by the selected mode.
     bool have_custom_infill = have_infill && pattern == ipCustomScripted;
-    CustomInfillMode custom_mode = config->opt_enum<CustomInfillMode>("custom_infill_mode");
+    // This config snapshot may not carry the custom_infill_* keys (e.g. per-object
+    // modifier configs hold only a subset); guard before reading to avoid a null deref.
+    CustomInfillMode custom_mode = config->has("custom_infill_mode")
+        ? config->opt_enum<CustomInfillMode>("custom_infill_mode") : cimTile2D;
     bool custom_tile2d   = have_custom_infill && custom_mode == cimTile2D;
     bool custom_volume3d = have_custom_infill && custom_mode == cimVolume3D;
     toggle_line("custom_infill_mode",        have_custom_infill);
