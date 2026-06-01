@@ -159,6 +159,39 @@ TEST_CASE("CustomInfill: 3D expr volume mode produces polylines", "[CustomInfill
     REQUIRE_FALSE(out.empty());
 }
 
+TEST_CASE("CustomInfill: mesh cell loads from JSON", "[CustomInfill]")
+{
+    // Write a tiny 10mm ASCII-STL cube and a JSON referencing it.
+    const std::string stl = "/tmp/_orca_cell.stl";
+    const std::string js  = "/tmp/_orca_cell_mesh.json";
+    {
+        std::ofstream o(stl);
+        auto tri = [&](double ax,double ay,double az,double bx,double by,double bz,double cx,double cy,double cz){
+            o << "facet normal 0 0 0\nouter loop\n";
+            o << "vertex " << ax << " " << ay << " " << az << "\n";
+            o << "vertex " << bx << " " << by << " " << bz << "\n";
+            o << "vertex " << cx << " " << cy << " " << cz << "\n";
+            o << "endloop\nendfacet\n";
+        };
+        o << "solid c\n";
+        // 12 triangles of a 0..10 cube
+        double v[8][3]={{0,0,0},{10,0,0},{10,10,0},{0,10,0},{0,0,10},{10,0,10},{10,10,10},{0,10,10}};
+        int f[12][3]={{0,3,2},{0,2,1},{4,5,6},{4,6,7},{0,1,5},{0,5,4},{1,2,6},{1,6,5},{2,3,7},{2,7,6},{3,0,4},{3,4,7}};
+        for (auto& t : f) tri(v[t[0]][0],v[t[0]][1],v[t[0]][2], v[t[1]][0],v[t[1]][1],v[t[1]][2], v[t[2]][0],v[t[2]][1],v[t[2]][2]);
+        o << "endsolid c\n";
+    }
+    { std::ofstream o(js); o << R"({"type":"mesh","file":"_orca_cell.stl","cell_size":10})"; }
+
+    VolumePattern vp;
+    REQUIRE(PatternManager::parse_volume_config(js, vp));
+    REQUIRE(vp.type == VolumeType::Mesh);
+    REQUIRE(vp.mesh != nullptr);
+    REQUIRE_THAT(vp.mesh_max.x() - vp.mesh_min.x(), WithinAbs(10.0, 1e-3));
+    REQUIRE_THAT(vp.mesh_max.z() - vp.mesh_min.z(), WithinAbs(10.0, 1e-3));
+    std::remove(stl.c_str());
+    std::remove(js.c_str());
+}
+
 TEST_CASE("CustomInfill: 3D gyroid volume mode produces polylines", "[CustomInfill]")
 {
     std::unique_ptr<Fill> filler(Fill::new_from_type(ipCustomScripted));

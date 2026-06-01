@@ -2,6 +2,8 @@
 #include "../MarchingSquares.hpp"
 #include "../ShortestPath.hpp"
 #include "../Surface.hpp"
+#include "../TriangleMesh.hpp"
+#include "../TriangleMeshSlicer.hpp"
 
 #include <cmath>
 #include <algorithm>
@@ -181,6 +183,9 @@ Polylines FillCustomScripted::fill_volume_3d(const FillParams& params, const ExP
 
     const VolumePattern& vp = PatternManager::instance().get_volume_pattern(id);
 
+    if (vp.type == VolumeType::Mesh)
+        return fill_mesh_3d(params, bb);
+
     // Base cell: GUI "Custom cell size" overrides the pattern file when set (>0).
     double base_cell = vp.cell_size;
     if (cfg && cfg->custom_infill_volume_cell.value > 0.0)
@@ -196,6 +201,75 @@ Polylines FillCustomScripted::fill_volume_3d(const FillParams& params, const ExP
 
     marchsq::TpmsField sf(bb, this->z, eff_cell, level, vp);
     return marchsq::get_tpms_polylines(sf, SCALED_SPARSE_INFILL_RESOLUTION);
+}
+
+Polylines FillCustomScripted::fill_mesh_3d(const FillParams& params, const BoundingBox& bb)
+{
+    const PrintRegionConfig* cfg = params.config;
+    const std::string id = cfg ? cfg->custom_infill_pattern_id.value : std::string();
+    const VolumePattern& vp = PatternManager::instance().get_volume_pattern(id);
+    if (vp.type != VolumeType::Mesh || ! vp.mesh)
+        return {};
+
+    double cell = (cfg && cfg->custom_infill_volume_cell.value > 0.0)
+        ? cfg->custom_infill_volume_cell.value : vp.cell_size;
+    if (cell <= 1e-3) cell = 10.0;
+
+    const double mx0 = vp.mesh_min.x(), my0 = vp.mesh_min.y(), mz0 = vp.mesh_min.z();
+    const double mw = std::max(vp.mesh_max.x() - mx0, 1e-6);
+    const double mh = std::max(vp.mesh_max.y() - my0, 1e-6);
+    const double md = std::max(vp.mesh_max.z() - mz0, 1e-6);
+
+    // World layer Z -> mesh-local Z, tiling vertically with period = cell.
+    const double localz = this->z - cell * std::floor(this->z / cell);
+    double mesh_z = mz0 + (localz / cell) * md;
+    mesh_z = std::clamp(mesh_z, mz0 + md * 1e-4, mz0 + md * (1.0 - 1e-4));
+
+    std::vector<ExPolygons> slices = slice_mesh_ex(vp.mesh->its, std::vector<float>{ float(mesh_z) }, [](){});
+    if (slices.empty() || slices[0].empty())
+        return {};
+
+    // Scale mesh XY (mm) into a cell of side `cell` (mm). Build the cell-local
+    // polylines once, then tile them across the region bounding box.
+    const double sx = cell / mw;
+    const double sy = cell / mh;
+    const coord_t cw = scale_(cell);
+    const coord_t ch = scale_(cell);
+
+    Polylines cell_polys;
+    auto add_contour = [&](const Polygon& poly) {
+        Polyline pl;
+        pl.points.reserve(poly.points.size() + 1);
+        for (const Point& p : poly.points)
+            pl.points.emplace_back(Point(scale_((unscaled(p.x()) - mx0) * sx),
+                                         scale_((unscaled(p.y()) - my0) * sy)));
+        if (! pl.points.empty()) pl.points.push_back(pl.points.front());
+        if (pl.points.size() >= 2) cell_polys.emplace_back(std::move(pl));
+    };
+    for (const ExPolygon& ex : slices[0]) {
+        add_contour(ex.contour);
+        for (const Polygon& h : ex.holes) add_contour(h);
+    }
+    if (cell_polys.empty())
+        return {};
+
+    const coord_t x0 = bb.min.x(), y0 = bb.min.y();
+    const int cols = int((bb.size().x() + cw - 1) / cw) + 1;
+    const int rows = int((bb.size().y() + ch - 1) / ch) + 1;
+
+    Polylines out;
+    out.reserve(size_t(cols) * rows * cell_polys.size());
+    for (int r = 0; r < rows; ++r)
+        for (int c = 0; c < cols; ++c) {
+            const coord_t dx = x0 + coord_t(c) * cw;
+            const coord_t dy = y0 + coord_t(r) * ch;
+            for (const Polyline& src : cell_polys) {
+                Polyline pl = src;
+                pl.translate(dx, dy);
+                out.emplace_back(std::move(pl));
+            }
+        }
+    return out;
 }
 
 void FillCustomScripted::_fill_surface_single(

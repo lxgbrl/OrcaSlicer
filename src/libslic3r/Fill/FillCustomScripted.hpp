@@ -39,6 +39,8 @@ private:
     Polylines fill_tile_2d(const FillParams& params, const ExPolygon& expolygon, const BoundingBox& bb);
     // 3D implicit-field iso-contour pipeline.
     Polylines fill_volume_3d(const FillParams& params, const ExPolygon& expolygon, const BoundingBox& bb);
+    // 3D mesh-cell pipeline: slice a mesh per layer and tile its cross-section.
+    Polylines fill_mesh_3d(const FillParams& params, const BoundingBox& bb);
 };
 
 } // namespace Slic3r

@@ -14,6 +14,8 @@
 
 namespace Slic3r {
 
+class TriangleMesh;
+
 // A 2D periodic tile loaded from a ".tile" text file.
 // Coordinates are stored tile-local, already scaled to Slic3r coord_t.
 // The tile origin is (0,0); width/height declare the period in mm.
@@ -29,7 +31,8 @@ struct TilePattern
 // Implicit-surface family for the 3D volumetric mode.
 //   Gyroid / SchwarzP : built-in TPMS families.
 //   Expr              : user formula f(x,y,z,t) (incl. imported MathMod Iso3D).
-enum class VolumeType { Gyroid, SchwarzP, Expr };
+//   Mesh              : a 3D mesh cell (STL/OBJ), sliced per layer and tiled.
+enum class VolumeType { Gyroid, SchwarzP, Expr, Mesh };
 
 // A 3D volumetric / TPMS pattern definition loaded from a parametric config
 // (JSON or simple INI-like text).
@@ -47,6 +50,11 @@ struct VolumePattern
     double     domain_min = -3.14159265358979323846;
     double     domain_max =  3.14159265358979323846;
     double     t          = 0.0;
+
+    // Mesh-only: the loaded cell mesh and its (unscaled, mm) bounding box.
+    std::shared_ptr<const TriangleMesh> mesh;
+    Vec3d      mesh_min{0, 0, 0};
+    Vec3d      mesh_max{1, 1, 1};
 
     bool       valid = false;
 };
@@ -72,6 +80,11 @@ public:
 
     // Drop cached patterns (call between slicing jobs if definitions changed).
     void clear_cache();
+
+    // List available pattern ids found in the bundled + user custom_infill
+    // folders (filenames without extension), plus the built-in 3D families.
+    // Sorted and de-duplicated. Used to populate the GUI dropdown.
+    static std::vector<std::string> list_patterns();
 
     // Parsers exposed for testing.
     static bool parse_tile_file(const std::string& path, TilePattern& out);

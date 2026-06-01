@@ -3044,9 +3044,13 @@ void PrintConfigDef::init_fff_params()
     def->label = L("Custom infill pattern");
     def->category = L("Strength");
     def->tooltip = L("Identifier of the custom infill pattern. For 2D Tile mode this resolves to a .tile file; "
-                     "for 3D Volume mode it resolves to a parametric pattern config (e.g. gyroid_medium). "
-                     "Patterns are looked up in the bundled resources/custom_infill folder and the user config folder.");
+                     "for 3D Volume mode it resolves to a parametric pattern config (e.g. gyroid_medium) or a "
+                     "mesh cell. Patterns are looked up in the bundled resources/custom_infill folder and the "
+                     "user config folder. The dropdown lists discovered patterns; you may also type a name.");
     def->mode = comAdvanced;
+    // Editable combo box; the choice list is populated at runtime from the
+    // custom_infill folders (see refresh_custom_infill_pattern_choices()).
+    def->gui_type = ConfigOptionDef::GUIType::f_enum_open;
     def->set_default_value(new ConfigOptionString("rectilinear"));
 
     def = this->add("custom_infill_tile_width", coFloat);

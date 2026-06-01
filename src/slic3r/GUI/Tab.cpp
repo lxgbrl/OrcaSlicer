@@ -4,6 +4,7 @@
 #include "PresetHints.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/PrintConfig.hpp"
+#include "libslic3r/Fill/CustomInfillPattern.hpp"
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
@@ -2469,6 +2470,11 @@ void TabPrint::build()
         optgroup->append_single_option_line("fill_multiline", "strength_settings_infill#fill-multiline");
         optgroup->append_single_option_line("sparse_infill_pattern", "strength_settings_infill#sparse-infill-pattern");
         // Custom scriptable infill (visibility gated in toggle_options()).
+        // Populate the pattern-id dropdown from the custom_infill folders.
+        if (auto* d = const_cast<ConfigOptionDef*>(print_config_def.get("custom_infill_pattern_id"))) {
+            d->enum_values = PatternManager::list_patterns();
+            d->enum_labels = d->enum_values;
+        }
         optgroup->append_single_option_line("custom_infill_mode");
         optgroup->append_single_option_line("custom_infill_pattern_id");
         optgroup->append_single_option_line("custom_infill_tile_width");

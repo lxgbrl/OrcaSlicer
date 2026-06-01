@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <set>
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -11,8 +12,42 @@
 #include "nlohmann/json.hpp"
 
 #include "../Utils.hpp"
+#include "../TriangleMesh.hpp"
+#include "../Format/OBJ.hpp"
 
 namespace Slic3r {
+
+// Load a mesh cell file (STL or OBJ) into the pattern. Returns false on failure.
+static bool load_mesh_cell(const std::string& mesh_path, VolumePattern& out)
+{
+    namespace fs = boost::filesystem;
+    std::string ext = fs::path(mesh_path).extension().string();
+    boost::to_lower(ext);
+
+    auto mesh = std::make_shared<TriangleMesh>();
+    if (ext == ".obj") {
+        ObjInfo info; std::string msg;
+        if (! load_obj(mesh_path.c_str(), mesh.get(), info, msg)) {
+            BOOST_LOG_TRIVIAL(error) << "custom_infill mesh load (obj) failed: " << msg;
+            return false;
+        }
+    } else {
+        if (! mesh->ReadSTLFile(mesh_path.c_str())) {
+            BOOST_LOG_TRIVIAL(error) << "custom_infill mesh load (stl) failed: " << mesh_path;
+            return false;
+        }
+    }
+    if (mesh->empty() || mesh->its.indices.empty())
+        return false;
+
+    BoundingBoxf3 bb = mesh->bounding_box();
+    out.mesh     = mesh;
+    out.mesh_min = bb.min;
+    out.mesh_max = bb.max;
+    out.type     = VolumeType::Mesh;
+    out.valid    = true;
+    return true;
+}
 
 // Import a MathMod "Iso3D" block into a VolumePattern (type Expr).
 static bool parse_mathmod_iso3d(const nlohmann::json& iso, VolumePattern& out)
@@ -56,6 +91,34 @@ PatternManager& PatternManager::instance()
 {
     static PatternManager s_inst;
     return s_inst;
+}
+
+std::vector<std::string> PatternManager::list_patterns()
+{
+    namespace fs = boost::filesystem;
+    std::set<std::string> ids;
+    // built-in 3D families (no file needed)
+    ids.insert("gyroid");
+    ids.insert("schwarzp");
+
+    std::vector<fs::path> dirs;
+    if (! resources_dir().empty()) dirs.emplace_back(fs::path(resources_dir()) / "custom_infill");
+    if (! data_dir().empty())      dirs.emplace_back(fs::path(data_dir()) / "custom_infill");
+
+    const std::set<std::string> exts = { ".tile", ".json", ".ini", ".cfg", ".txt" };
+    for (const fs::path& dir : dirs) {
+        boost::system::error_code ec;
+        if (! fs::is_directory(dir, ec)) continue;
+        for (fs::directory_iterator it(dir, ec), end; it != end && ! ec; it.increment(ec)) {
+            const fs::path& p = it->path();
+            if (! fs::is_regular_file(p, ec)) continue;
+            std::string ext = p.extension().string();
+            boost::to_lower(ext);
+            if (exts.count(ext) && p.stem().string() != "patterns")
+                ids.insert(p.stem().string());
+        }
+    }
+    return { ids.begin(), ids.end() };
 }
 
 void PatternManager::clear_cache()
@@ -175,6 +238,8 @@ bool PatternManager::parse_volume_config(const std::string& path, VolumePattern&
             out.type = VolumeType::SchwarzP;
         else if (t == "expr" || t == "mathmod" || t == "formula")
             out.type = VolumeType::Expr;
+        else if (t == "mesh" || t == "stl" || t == "obj")
+            out.type = VolumeType::Mesh;
         else
             out.type = VolumeType::Gyroid;
     };
@@ -208,6 +273,14 @@ bool PatternManager::parse_volume_config(const std::string& path, VolumePattern&
                     return false;
                 }
                 out.expr = expr;
+            } else if (out.type == VolumeType::Mesh) {
+                if (! j.contains("file"))
+                    return false;
+                // mesh file is resolved relative to the JSON's folder
+                boost::filesystem::path mp = boost::filesystem::path(path).parent_path()
+                                           / j["file"].get<std::string>();
+                if (! load_mesh_cell(mp.string(), out))
+                    return false;
             }
             out.valid = true;
         } catch (...) {
