@@ -609,6 +609,11 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     // hide the whole line otherwise.
     toggle_line("gyroid_optimized", have_infill && pattern == ipGyroid);
 
+    // Continuous toolpath: sub-options only when the feature is enabled.
+    bool have_ctp = config->has("continuous_toolpath") && config->opt_bool("continuous_toolpath");
+    toggle_line("continuous_toolpath_single", have_ctp);
+    toggle_line("continuous_toolpath_sacrificial_max", have_ctp);
+
     // Custom scriptable infill: show its settings only for the Custom pattern,
     // and split 2D-tile vs 3D-volume keys by the selected mode.
     bool have_custom_infill = have_infill && pattern == ipCustomScripted;

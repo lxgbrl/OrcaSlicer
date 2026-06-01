@@ -2756,6 +2756,10 @@ void TabPrint::build()
 
         optgroup = page->new_optgroup(L("G-code output"), L"param_gcode");
         optgroup->append_single_option_line("reduce_infill_retraction", "others_settings_g_code_output#reduce-infill-retraction");
+        // Continuous toolpath (sub-options gated in toggle_options()).
+        optgroup->append_single_option_line("continuous_toolpath");
+        optgroup->append_single_option_line("continuous_toolpath_single");
+        optgroup->append_single_option_line("continuous_toolpath_sacrificial_max");
         optgroup->append_single_option_line("gcode_add_line_number", "others_settings_g_code_output#add-line-number");
         optgroup->append_single_option_line("gcode_comments", "others_settings_g_code_output#verbose-g-code");
         optgroup->append_single_option_line("gcode_label_objects", "others_settings_g_code_output#label-objects");

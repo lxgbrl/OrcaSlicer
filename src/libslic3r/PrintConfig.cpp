@@ -4976,6 +4976,34 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(false));
 
+    // ---- Continuous toolpath (FillCustomScripted's sibling for path ordering) ----
+    def = this->add("continuous_toolpath", coBool);
+    def->label = L("Continuous toolpath");
+    def->category = L("Quality");
+    def->tooltip = L("Reorder each layer into a single near-continuous, retraction-free path "
+                     "(Eulerized graph traversal). Best for soft/continuous materials like TPU "
+                     "or clay where pressure stability matters. Experimental.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("continuous_toolpath_single", coBool);
+    def->label = L("Single path per layer");
+    def->category = L("Quality");
+    def->tooltip = L("Bridge all disjoint regions of a layer into one continuous path. If off, "
+                     "each connected region is made continuous on its own (a travel between regions).");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(true));
+
+    def = this->add("continuous_toolpath_sacrificial_max", coFloat);
+    def->label = L("Max bridge length");
+    def->category = L("Quality");
+    def->tooltip = L("A connector between regions extrudes (sacrificial bridge) only if its gap is at "
+                     "most this long; longer jumps stay travels so material is not strung across holes.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(3.0));
+
     def = this->add("ooze_prevention", coBool);
     def->label = L("Enable");
     def->tooltip = L("This option will drop the temperature of the inactive extruders to prevent oozing.");
