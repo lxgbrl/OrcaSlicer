@@ -1,6 +1,11 @@
 #include <catch2/catch_all.hpp>
 
+#include <cstdio>
+#include <fstream>
+#include <sstream>
+
 #include "libslic3r/GCode/ContinuousToolpath.hpp"
+#include "libslic3r/GCode/ContinuousToolpathPostProcess.hpp"
 #include "libslic3r/Polyline.hpp"
 #include "libslic3r/libslic3r.h"
 
@@ -55,4 +60,31 @@ TEST_CASE("ContinuousToolpath: empty input is safe", "[CTP]")
 {
     Polylines in;
     REQUIRE(order(in, Params{}).empty());
+}
+
+TEST_CASE("ContinuousToolpath: post-process rewrites file, keeps footer, no retraction", "[CTP]")
+{
+    const std::string path = "/tmp/_orca_ctp_pp.gcode";
+    {
+        std::ofstream o(path);
+        o << "; HEADER_BLOCK_START\n; EXECUTABLE_BLOCK_START\nM83\nG1 Z0.2 F6000\n"
+             ";LAYER_CHANGE\n;Z:0.2\n;HEIGHT:0.2\n;TYPE:Outer wall\n;WIDTH:0.4\n"
+             "G1 X0 Y0 F6000\n"
+             "G1 X20 Y0 E1 F1500\nG1 X20 Y20 E1\nG1 X0 Y20 E1\nG1 X0 Y0 E1\n"
+             ";TYPE:Sparse infill\n;WIDTH:0.4\n"
+             "G1 X2 Y10 F6000\nG1 X18 Y10 E0.5 F1500\n"
+             "; EXECUTABLE_BLOCK_END\n; CONFIG_BLOCK_START\n; layer_height = 0.2\n; CONFIG_BLOCK_END\n";
+    }
+    Params p; p.single_path = true; p.sacrificial_max = scale_(3.0);
+    REQUIRE(ContinuousToolpath::post_process_file(path, p, 1.75));
+
+    std::ifstream in(path);
+    std::stringstream ss; ss << in.rdbuf();
+    std::string g = ss.str();
+
+    REQUIRE(g.find("CONFIG_BLOCK_END") != std::string::npos);   // footer preserved
+    REQUIRE(g.find(";LAYER_CHANGE") != std::string::npos);      // layer preserved
+    REQUIRE(g.find("E-") == std::string::npos);                 // no retraction
+    REQUIRE(g.find("G1 ") != std::string::npos);
+    std::remove(path.c_str());
 }

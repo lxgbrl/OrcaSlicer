@@ -31,6 +31,8 @@ struct Move
     Polyline polyline;     // geometry (>=2 points), already oriented for traversal
     bool     travel = false;   // true => non-extruding move (jump); false => extrude
     bool     bridge = false;   // synthetic connector (short, extruding) vs original bead
+    int      src_index = -1;   // index into the input Polylines (-1 for a bridge)
+    bool     reversed  = false; // input polyline was reversed for this traversal
 };
 
 // Reorder `input` polylines into a continuous traversal. Geometry of original beads

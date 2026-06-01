@@ -229,6 +229,8 @@ set(lisbslic3r_sources
     GCode/GCodeProcessor.hpp
     GCode/ContinuousToolpath.cpp
     GCode/ContinuousToolpath.hpp
+    GCode/ContinuousToolpathPostProcess.cpp
+    GCode/ContinuousToolpathPostProcess.hpp
     GCode.hpp
     GCode/PchipInterpolatorHelper.cpp
     GCode/PchipInterpolatorHelper.hpp

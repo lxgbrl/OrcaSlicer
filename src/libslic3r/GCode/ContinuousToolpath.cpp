@@ -30,6 +30,7 @@ struct GEdge
 {
     int u, v;                 // node ids
     bool bridge = false;      // synthetic connector (no original bead)
+    int  src = -1;            // index into the input Polylines (-1 for a bridge)
     Polyline poly;            // geometry u->v (empty for bridge; built on demand)
 };
 
@@ -54,11 +55,13 @@ std::vector<Move> order(const Polylines& input, const Params& params)
     };
 
     std::vector<GEdge> edges;
-    for (const Polyline& pl : input) {
+    for (int i = 0; i < int(input.size()); ++i) {
+        const Polyline& pl = input[i];
         if (pl.points.size() < 2) continue;
         GEdge e;
         e.u = node_of(pl.points.front());
         e.v = node_of(pl.points.back());
+        e.src = i;
         e.poly = pl;
         edges.push_back(std::move(e));
     }
@@ -175,8 +178,11 @@ std::vector<Move> order(const Polylines& input, const Params& params)
             m.bridge = !m.travel;
         } else {
             m.polyline = e.poly;
-            if (m.polyline.points.front() != nodes[a] && m.polyline.points.back() == nodes[a])
+            m.src_index = e.src;
+            if (m.polyline.points.front() != nodes[a] && m.polyline.points.back() == nodes[a]) {
                 m.polyline.reverse();
+                m.reversed = true;
+            }
             m.travel = false; m.bridge = false;
         }
         out.push_back(std::move(m));

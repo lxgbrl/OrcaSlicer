@@ -10,6 +10,7 @@
 #include "ExtrusionEntity.hpp"
 #include "EdgeGrid.hpp"
 #include "Geometry/ConvexHull.hpp"
+#include "GCode/ContinuousToolpathPostProcess.hpp"
 #include "GCode/PrintExtents.hpp"
 #include "GCode/Thumbnails.hpp"
 #include "GCode/WipeTower.hpp"
@@ -2105,6 +2106,22 @@ void GCode::do_export(Print* print, const char* path, GCodeProcessorResult* resu
         throw;
     }
     file.close();
+
+    // Continuous toolpath (experimental, default OFF): rewrite the finished file into
+    // a near-continuous, retraction-free path per layer. Self-contained post-process
+    // (approach B): touches only the file on disk, not the generator. Preview/time
+    // estimate still reflect the pre-reorder pass for now.
+    if (m_config.continuous_toolpath.value) {
+        ContinuousToolpath::Params ctp;
+        ctp.single_path     = m_config.continuous_toolpath_single.value;
+        ctp.sacrificial_max = scale_(m_config.continuous_toolpath_sacrificial_max.value);
+        double fdia = m_config.filament_diameter.values.empty() ? 1.75 : m_config.filament_diameter.values.front();
+        try {
+            ContinuousToolpath::post_process_file(path_tmp, ctp, fdia);
+        } catch (const std::exception& ex) {
+            BOOST_LOG_TRIVIAL(error) << "continuous_toolpath post-process failed: " << ex.what();
+        }
+    }
 
     check_placeholder_parser_failed();
 
