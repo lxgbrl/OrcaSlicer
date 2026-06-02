@@ -73,12 +73,6 @@ std::vector<Move> order(const Polylines& input, const Params& params)
     std::vector<int> degree(N, 0);
     for (const GEdge& e : edges) { degree[e.u]++; degree[e.v]++; dsu.uni(e.u, e.v); }
 
-    // ---- 3. Eulerize: pair odd-degree nodes within each component ------------
-    // Greedy nearest pairing (cheap, good enough; blossom-optimal is a refinement).
-    std::map<int, std::vector<int>> odd_by_comp;
-    for (int n = 0; n < N; ++n)
-        if (degree[n] & 1) odd_by_comp[dsu.find(n)].push_back(n);
-
     auto add_connector = [&](int a, int b) {
         GEdge e; e.u = a; e.v = b; e.bridge = true;
         edges.push_back(e);
@@ -86,42 +80,51 @@ std::vector<Move> order(const Polylines& input, const Params& params)
         dsu.uni(a, b);
     };
 
-    for (auto& kv : odd_by_comp) {
-        std::vector<int>& odd = kv.second;
-        std::vector<char> used(odd.size(), 0);
-        for (size_t i = 0; i < odd.size(); ++i) {
-            if (used[i]) continue;
-            int best = -1; double bd = 0;
-            for (size_t j = i + 1; j < odd.size(); ++j) {
-                if (used[j]) continue;
-                double d = dist2(nodes[odd[i]], nodes[odd[j]]);
-                if (best < 0 || d < bd) { bd = d; best = int(j); }
-            }
-            if (best >= 0) { used[i] = used[size_t(best)] = 1; add_connector(odd[i], odd[best]); }
-        }
-    }
-
-    // ---- 4. single_path: bridge separate components into one graph -----------
+    // ---- 3. single_path: bridge separate components into one graph FIRST.
+    // Must happen before the parity fix: bridges change degrees, so pairing the
+    // odd nodes afterwards is what restores an Eulerian (all-even) graph.
     if (params.single_path) {
-        // representative node per component
         std::map<int, int> rep;
         for (int n = 0; n < N; ++n) rep.emplace(dsu.find(n), n);
         std::vector<int> reps;
         for (auto& kv : rep) reps.push_back(kv.second);
-        // chain components by nearest representative (greedy)
         std::vector<char> done(reps.size(), 0);
-        int cur = 0; done[0] = 1;
-        for (size_t step = 1; step < reps.size(); ++step) {
-            int best = -1; double bd = 0;
-            for (size_t j = 0; j < reps.size(); ++j) {
-                if (done[j]) continue;
-                if (dsu.find(reps[j]) == dsu.find(reps[cur])) { done[j] = 1; continue; }
-                double d = dist2(nodes[reps[cur]], nodes[reps[j]]);
-                if (best < 0 || d < bd) { bd = d; best = int(j); }
+        if (! reps.empty()) {
+            int cur = 0; done[0] = 1;
+            for (size_t step = 1; step < reps.size(); ++step) {
+                int best = -1; double bd = 0;
+                for (size_t j = 0; j < reps.size(); ++j) {
+                    if (done[j]) continue;
+                    if (dsu.find(reps[j]) == dsu.find(reps[cur])) { done[j] = 1; continue; }
+                    double d = dist2(nodes[reps[cur]], nodes[reps[j]]);
+                    if (best < 0 || d < bd) { bd = d; best = int(j); }
+                }
+                if (best < 0) break;
+                add_connector(reps[cur], reps[best]);
+                done[size_t(best)] = 1; cur = best;
             }
-            if (best < 0) break;
-            add_connector(reps[cur], reps[best]);   // joins components -> both become even+2 (still even parity preserved pairwise)
-            done[size_t(best)] = 1; cur = best;
+        }
+    }
+
+    // ---- 4. Eulerize: pair odd-degree nodes within each (current) component ----
+    // Greedy nearest pairing (blossom-optimal is a refinement).
+    {
+        std::map<int, std::vector<int>> odd_by_comp;
+        for (int n = 0; n < N; ++n)
+            if (degree[n] & 1) odd_by_comp[dsu.find(n)].push_back(n);
+        for (auto& kv : odd_by_comp) {
+            std::vector<int>& odd = kv.second;
+            std::vector<char> used(odd.size(), 0);
+            for (size_t i = 0; i < odd.size(); ++i) {
+                if (used[i]) continue;
+                int best = -1; double bd = 0;
+                for (size_t j = i + 1; j < odd.size(); ++j) {
+                    if (used[j]) continue;
+                    double d = dist2(nodes[odd[i]], nodes[odd[j]]);
+                    if (best < 0 || d < bd) { bd = d; best = int(j); }
+                }
+                if (best >= 0) { used[i] = used[size_t(best)] = 1; add_connector(odd[i], odd[best]); }
+            }
         }
     }
 
@@ -132,27 +135,39 @@ std::vector<Move> order(const Polylines& input, const Params& params)
     std::vector<char> used_edge(edges.size(), 0);
     std::vector<size_t> it_pos(N, 0);
 
-    // start at an odd-degree node if any remain (open path), else any node with edges
-    int start = edges[0].u;
-    for (int n = 0; n < N; ++n) if ((degree[n] & 1) && !adj[n].empty()) { start = n; break; }
+    // Cover EVERY component: repeat Hierholzer until no unused edge remains.
+    // (A single run only covers one connected component, and only fully when that
+    // component is Eulerian. Looping guarantees no geometry is dropped.)
+    auto find_start = [&]() -> int {
+        for (int n = 0; n < N; ++n) if (degree[n] & 1)
+            for (int ei : adj[n]) if (! used_edge[ei]) return n;
+        for (int n = 0; n < N; ++n)
+            for (int ei : adj[n]) if (! used_edge[ei]) return n;
+        return -1;
+    };
 
-    std::vector<int> node_stack{ start };
     std::vector<int> node_path;
-    while (!node_stack.empty()) {
-        int v = node_stack.back();
-        size_t& it = it_pos[v];
-        while (it < adj[v].size() && used_edge[adj[v][it]]) ++it;
-        if (it == adj[v].size()) {
-            node_path.push_back(v);
-            node_stack.pop_back();
-        } else {
-            int ei = adj[v][it++];
-            used_edge[ei] = 1;
-            int to = (edges[ei].u == v) ? edges[ei].v : edges[ei].u;
-            node_stack.push_back(to);
+    for (;;) {
+        int start = find_start();
+        if (start < 0) break;
+        std::vector<int> node_stack{ start }, seg;
+        while (! node_stack.empty()) {
+            int v = node_stack.back();
+            size_t& it = it_pos[v];
+            while (it < adj[v].size() && used_edge[adj[v][it]]) ++it;
+            if (it == adj[v].size()) {
+                seg.push_back(v);
+                node_stack.pop_back();
+            } else {
+                int ei = adj[v][it++];
+                used_edge[ei] = 1;
+                int to = (edges[ei].u == v) ? edges[ei].v : edges[ei].u;
+                node_stack.push_back(to);
+            }
         }
+        std::reverse(seg.begin(), seg.end());
+        node_path.insert(node_path.end(), seg.begin(), seg.end());
     }
-    std::reverse(node_path.begin(), node_path.end());
 
     // ---- 6. rebuild ordered moves from the node walk -------------------------
     // For each consecutive node pair, find the matching unused-in-output edge.
