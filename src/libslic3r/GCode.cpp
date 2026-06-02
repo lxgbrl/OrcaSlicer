@@ -2117,14 +2117,13 @@ void GCode::do_export(Print* print, const char* path, GCodeProcessorResult* resu
         ctp.sacrificial_max = scale_(m_config.continuous_toolpath_sacrificial_max.value);
         double fdia = m_config.filament_diameter.values.empty() ? 1.75 : m_config.filament_diameter.values.front();
         try {
-            if (ContinuousToolpath::post_process_file(path_tmp, ctp, fdia)) {
-                // Rebuild the processor result from the reordered file so the Preview
-                // tab and time estimate reflect the continuous path. reset() first:
-                // process_file() does NOT clear m_result, so without a reset it would
-                // append to the already-streamed moves (doubled/overlaid layers).
-                m_processor.reset();
-                m_processor.process_file(path_tmp);
-            }
+            // Rewrite the exported file into the continuous path. We deliberately do
+            // NOT re-run the processor here: reprocessing mid-export corrupts the
+            // layer/preview state. The Preview tab therefore shows the pre-reorder
+            // paths; the exported .gcode on disk is the continuous one (verify in an
+            // external viewer such as gcode.ws). Refreshing the preview cleanly is a
+            // separate task (needs the standalone-viewer reprocess path).
+            ContinuousToolpath::post_process_file(path_tmp, ctp, fdia);
         } catch (const std::exception& ex) {
             BOOST_LOG_TRIVIAL(error) << "continuous_toolpath post-process failed: " << ex.what();
         }
