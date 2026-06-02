@@ -2196,22 +2196,12 @@ void GCode::do_export(Print* print, const char* path, GCodeProcessorResult* resu
 //    DoExport::update_print_estimated_times_stats(m_processor, print->m_print_statistics);
     DoExport::update_print_estimated_stats(m_processor, m_writer.extruders(), print->m_print_statistics, print->config());
     if (result != nullptr) {
-        if (m_config.continuous_toolpath.value) {
-            // The path was reordered after streaming, so m_processor's result still
-            // reflects the original order. Re-parse the rewritten file with a fresh
-            // processor (the viewer's own path) so the Preview shows the continuous
-            // toolpath. Falls back to the streamed result on any failure.
-            try {
-                GCodeProcessor ctp_proc;
-                ctp_proc.process_file(path_tmp);
-                *result = std::move(ctp_proc.extract_result());
-            } catch (const std::exception& ex) {
-                BOOST_LOG_TRIVIAL(error) << "continuous_toolpath preview reprocess failed: " << ex.what();
-                *result = std::move(m_processor.extract_result());
-            }
-        } else {
-            *result = std::move(m_processor.extract_result());
-        }
+        // NOTE: with continuous_toolpath the exported file is reordered after
+        // streaming, so this preview result reflects the ORIGINAL order. Re-parsing
+        // the rewritten file via Orca's GCodeProcessor mis-reads its Z (Orca-specific
+        // dialect strictness; external viewers + the printer read it fine), so we do
+        // not refresh here. Inspect the reordered path in an external viewer.
+        *result = std::move(m_processor.extract_result());
         // set the filename to the correct value
         result->filename = path;
     }
