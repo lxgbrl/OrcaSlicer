@@ -2733,6 +2733,11 @@ void MainFrame::init_menubar_as_editor()
         append_menu_item(import_menu, wxID_ANY, _L("Import Configs") + dots /*+ "\t" + ctrl + "I"*/, _L("Load configs"),
             [this](wxCommandEvent&) { load_config_file(); }, "menu_import", nullptr,
             [this](){return true; }, this);
+        // Open an external G-code file in the built-in viewer (e.g. to inspect a
+        // continuous-toolpath export). Loads into the toolpath preview.
+        append_menu_item(import_menu, wxID_ANY, _L("Import G-code") + dots, _L("Open a G-code file in the toolpath viewer"),
+            [this](wxCommandEvent&) { if (m_plater) m_plater->load_gcode(); }, "menu_import", nullptr,
+            [this]() { return m_plater != nullptr; }, this);
 
         append_submenu(fileMenu, import_menu, wxID_ANY, _L("Import"), "");
 
