@@ -217,11 +217,17 @@ void order_entities(ExtrusionEntitiesPtr& entities, const Point& start, const Pa
     if (entities.size() < 2)
         return;
 
-    // One polyline per entity (its toolpath spine) for the graph.
+    // For chaining we only need each entity's endpoints (as_polyline() throws on
+    // ExtrusionEntityCollection). A 2-point segment first->last is enough to build
+    // the endpoint graph and decide ordering / reversal.
     Polylines polys;
     polys.reserve(entities.size());
-    for (const ExtrusionEntity* e : entities)
-        polys.push_back(e->as_polyline());
+    for (const ExtrusionEntity* e : entities) {
+        Polyline pl;
+        pl.points.push_back(e->first_point());
+        pl.points.push_back(e->last_point());
+        polys.push_back(std::move(pl));
+    }
 
     Params p = params;
     // entities are pre-clipped real toolpaths; keep single-path bridging behavior.
