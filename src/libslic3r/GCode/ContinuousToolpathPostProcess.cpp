@@ -81,7 +81,7 @@ bool post_process_file(const std::string& path, const Params& params,
     // ---- parse layers --------------------------------------------------------
     std::vector<LayerData> layers;
     double x = 0, y = 0, z = 0, lastE = 0, curH = 0.2, print_f = 1500, travel_f = 6000;
-    bool relE = false;
+    bool relE = false, pending_layer = true;   // start a layer at the first ;LAYER_CHANGE / G1 Z
     Bead cur; LayerData* L = nullptr;
     auto flush_bead = [&]() {
         if (cur.pts.size() >= 2 && L) L->beads.push_back(cur);
@@ -100,7 +100,13 @@ bool post_process_file(const std::string& path, const Params& params,
             if (s.compare(p, 7, ";WIDTH:") == 0) { flush_bead(); }   // width change = bead boundary
             else if (s.compare(p, 8, ";HEIGHT:") == 0) { try { curH = std::stod(s.substr(p + 8)); } catch (...) {} if (L) L->height = curH; }
             else if (s.compare(p, 6, ";TYPE:") == 0) flush_bead();
-            else if (s.compare(p, 3, ";Z:") == 0) { try { new_layer(std::stod(s.substr(p + 3))); } catch (...) {} }
+            else if (s.compare(p, 13, ";LAYER_CHANGE") == 0) { flush_bead(); pending_layer = true; }
+            else if (s.compare(p, 3, ";Z:") == 0) {
+                try { double zz = std::stod(s.substr(p + 3));
+                      if (pending_layer) { new_layer(zz); pending_layer = false; }
+                      else if (L) L->z = zz;
+                      z = zz; } catch (...) {}
+            }
             continue;
         }
         if (s.compare(p, 3, "M83") == 0) { relE = true; continue; }
@@ -111,7 +117,11 @@ bool post_process_file(const std::string& path, const Params& params,
         if (!(g01 || g2 || g3)) continue;
         double nx = x, ny = y, vz = 0, ve = 0;
         bool hx = num_after(s, 'X', nx), hy = num_after(s, 'Y', ny);
-        if (num_after(s, 'Z', vz)) { if (L == nullptr) new_layer(vz); z = vz; }
+        if (num_after(s, 'Z', vz)) {
+            if (pending_layer) { new_layer(vz); pending_layer = false; }   // layer Z from G1 Z when no ;Z: present
+            else if (L == nullptr) new_layer(vz);
+            z = vz;
+        }
         bool he = num_after(s, 'E', ve);
         bool extr = false; double de = 0;
         if (he) { de = relE ? ve : ve - lastE; if (!relE) lastE = ve; extr = de > 1e-6 && (hx || hy); }
