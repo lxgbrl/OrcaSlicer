@@ -212,5 +212,40 @@ Polylines order_polylines(const Polylines& input, const Params& params)
     return pls;
 }
 
+void order_entities(ExtrusionEntitiesPtr& entities, const Point& start, const Params& params)
+{
+    if (entities.size() < 2)
+        return;
+
+    // One polyline per entity (its toolpath spine) for the graph.
+    Polylines polys;
+    polys.reserve(entities.size());
+    for (const ExtrusionEntity* e : entities)
+        polys.push_back(e->as_polyline());
+
+    Params p = params;
+    // entities are pre-clipped real toolpaths; keep single-path bridging behavior.
+    std::vector<Move> moves = order(polys, p);
+
+    ExtrusionEntitiesPtr ordered;
+    ordered.reserve(entities.size());
+    std::vector<char> placed(entities.size(), 0);
+    for (const Move& m : moves) {
+        if (m.src_index < 0 || m.src_index >= int(entities.size()) || placed[m.src_index])
+            continue;                       // bridges (src_index<0) need no entity
+        placed[m.src_index] = 1;
+        ExtrusionEntity* e = entities[m.src_index];
+        if (m.reversed)
+            e->reverse();
+        ordered.push_back(e);
+    }
+    // safety: append anything the tour didn't cover (shouldn't happen)
+    for (size_t i = 0; i < entities.size(); ++i)
+        if (! placed[i]) ordered.push_back(entities[i]);
+
+    entities = std::move(ordered);
+    (void)start;   // start point reserved for future seam-aware ordering
+}
+
 } // namespace ContinuousToolpath
 } // namespace Slic3r

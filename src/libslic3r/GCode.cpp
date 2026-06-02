@@ -10,6 +10,7 @@
 #include "ExtrusionEntity.hpp"
 #include "EdgeGrid.hpp"
 #include "Geometry/ConvexHull.hpp"
+#include "GCode/ContinuousToolpath.hpp"
 #include "GCode/ContinuousToolpathPostProcess.hpp"
 #include "GCode/PrintExtents.hpp"
 #include "GCode/Thumbnails.hpp"
@@ -2107,27 +2108,10 @@ void GCode::do_export(Print* print, const char* path, GCodeProcessorResult* resu
     }
     file.close();
 
-    // Continuous toolpath (experimental, default OFF): rewrite the finished file into
-    // a near-continuous, retraction-free path per layer. Self-contained post-process
-    // (approach B): touches only the file on disk, not the generator. Preview/time
-    // estimate still reflect the pre-reorder pass for now.
-    if (m_config.continuous_toolpath.value) {
-        ContinuousToolpath::Params ctp;
-        ctp.single_path     = m_config.continuous_toolpath_single.value;
-        ctp.sacrificial_max = scale_(m_config.continuous_toolpath_sacrificial_max.value);
-        double fdia = m_config.filament_diameter.values.empty() ? 1.75 : m_config.filament_diameter.values.front();
-        try {
-            // Rewrite the exported file into the continuous path. We deliberately do
-            // NOT re-run the processor here: reprocessing mid-export corrupts the
-            // layer/preview state. The Preview tab therefore shows the pre-reorder
-            // paths; the exported .gcode on disk is the continuous one (verify in an
-            // external viewer such as gcode.ws). Refreshing the preview cleanly is a
-            // separate task (needs the standalone-viewer reprocess path).
-            ContinuousToolpath::post_process_file(path_tmp, ctp, fdia);
-        } catch (const std::exception& ex) {
-            BOOST_LOG_TRIVIAL(error) << "continuous_toolpath post-process failed: " << ex.what();
-        }
-    }
+    // Continuous toolpath is now applied during emission by reordering extrusion
+    // entities (see extrude_infill / order_entities), so the gcode is native Orca
+    // output in the new order and the Preview/time/file are all consistent. The old
+    // text post-process (post_process_file) is retired.
 
     check_placeholder_parser_failed();
 
@@ -6167,7 +6151,13 @@ std::string GCode::extrude_infill(const Print &print, const std::vector<ObjectBy
                     extrusions.emplace_back(ee);
             if (! extrusions.empty()) {
                 m_config.apply(print.get_print_region(&region - &by_region.front()).config());
-                chain_and_reorder_extrusion_entities(extrusions, m_last_pos.to_point());
+                if (m_config.continuous_toolpath.value) {
+                    ContinuousToolpath::Params ctp;
+                    ctp.single_path     = m_config.continuous_toolpath_single.value;
+                    ctp.sacrificial_max = scale_(m_config.continuous_toolpath_sacrificial_max.value);
+                    ContinuousToolpath::order_entities(extrusions, m_last_pos.to_point(), ctp);
+                } else
+                    chain_and_reorder_extrusion_entities(extrusions, m_last_pos.to_point());
                 for (const ExtrusionEntity *fill : extrusions) {
                     auto *eec = dynamic_cast<const ExtrusionEntityCollection*>(fill);
                     if (eec) {

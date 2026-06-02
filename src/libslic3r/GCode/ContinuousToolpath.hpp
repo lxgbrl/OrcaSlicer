@@ -4,6 +4,7 @@
 #include <vector>
 #include "../libslic3r.h"
 #include "../Polyline.hpp"
+#include "../ExtrusionEntity.hpp"
 
 namespace Slic3r {
 namespace ContinuousToolpath {
@@ -41,6 +42,13 @@ std::vector<Move> order(const Polylines& input, const Params& params);
 
 // Convenience: just the ordered polylines (bridges/travels included as segments).
 Polylines order_polylines(const Polylines& input, const Params& params);
+
+// Reorder a list of extrusion entities into a continuity-optimal sequence (Eulerized
+// over their endpoints), reversing entities where that shortens the chain. Emitted
+// natively afterwards, consecutive entities share endpoints -> near-zero travel,
+// retraction-free (with retraction length 0). `start` is the current nozzle position.
+// This is the architecturally-clean path: ordering only, native G-code emission.
+void order_entities(ExtrusionEntitiesPtr& entities, const Point& start, const Params& params);
 
 } // namespace ContinuousToolpath
 } // namespace Slic3r
