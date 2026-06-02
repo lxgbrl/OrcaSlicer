@@ -488,6 +488,10 @@ private:
 
     std::string     extrude_perimeters(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region, bool is_first_layer, bool is_infill_first);
     std::string     extrude_infill(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region, bool ironing);
+    // Continuous toolpath: emit all perimeters + (non-ironing) infill of the island as
+    // one continuity-ordered stream (native extrude_entity), so the whole layer is a
+    // near-continuous, retraction-free path.
+    std::string     extrude_island_continuous(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region, bool is_first_layer);
     std::string     extrude_support(const ExtrusionEntityCollection& support_fills, const ExtrusionRole support_extrusion_role);
 
     // BBS

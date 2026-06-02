@@ -5440,6 +5440,11 @@ LayerResult GCode::process_layer(
                         return false;
                     };
                     {
+                        if (m_config.continuous_toolpath.value) {
+                            // Continuous toolpath: emit perimeters + infill as one
+                            // continuity-ordered, retraction-free stream for the island.
+                            gcode += this->extrude_island_continuous(print, by_region_specific, first_layer);
+                        } else {
                         // Print perimeters of regions that has is_infill_first == false
                         gcode += this->extrude_perimeters(print, by_region_specific, first_layer, false);
                         if (!has_wipe_tower && need_insert_timelapse_gcode_for_traditional && printer_structure == PrinterStructure::psI3
@@ -5453,6 +5458,7 @@ LayerResult GCode::process_layer(
                         gcode += this->extrude_infill(print, by_region_specific, false);
                         // Then print perimeters of regions that has is_infill_first == true
                         gcode += this->extrude_perimeters(print, by_region_specific, first_layer, true);
+                        }
                     }
                     // ironing
                     gcode += this->extrude_infill(print,by_region_specific, true);
@@ -6168,6 +6174,51 @@ std::string GCode::extrude_infill(const Print &print, const std::vector<ObjectBy
                 }
             }
         }
+    return gcode;
+}
+
+std::string GCode::extrude_island_continuous(const Print& print, const std::vector<ObjectByExtruder::Island::Region>& by_region, bool is_first_layer)
+{
+    std::string gcode;
+    // Gather all perimeters + non-ironing infill of the island, remembering each
+    // entity's by_region index (for per-region config) and whether it's a perimeter.
+    ExtrusionEntitiesPtr ents;
+    std::vector<int>     region_of;
+    std::vector<char>    is_perim;
+    for (size_t ri = 0; ri < by_region.size(); ++ri) {
+        const ObjectByExtruder::Island::Region& region = by_region[ri];
+        for (ExtrusionEntity* ee : region.perimeters) { ents.push_back(ee); region_of.push_back(int(ri)); is_perim.push_back(1); }
+        for (ExtrusionEntity* ee : region.infills) {
+            if (ee->role() == erIroning) continue;
+            if (auto* eec = dynamic_cast<ExtrusionEntityCollection*>(ee)) {
+                for (ExtrusionEntity* leaf : eec->entities) { ents.push_back(leaf); region_of.push_back(int(ri)); is_perim.push_back(0); }
+            } else { ents.push_back(ee); region_of.push_back(int(ri)); is_perim.push_back(0); }
+        }
+    }
+    if (ents.empty())
+        return gcode;
+
+    ContinuousToolpath::Params ctp;
+    ctp.single_path     = m_config.continuous_toolpath_single.value;
+    ctp.sacrificial_max = scale_(m_config.continuous_toolpath_sacrificial_max.value);
+
+    Polylines eps; eps.reserve(ents.size());
+    for (ExtrusionEntity* e : ents) {
+        Polyline pl; pl.points.push_back(e->first_point()); pl.points.push_back(e->last_point());
+        eps.push_back(std::move(pl));
+    }
+    auto seq = ContinuousToolpath::order_indices(eps, ctp);
+
+    for (const auto& s : seq) {
+        ExtrusionEntity* e = ents[s.first];
+        if (s.second) e->reverse();
+        m_config.apply(print.get_print_region(region_of[s.first]).config());
+        if (is_perim[s.first])
+            gcode += this->extrude_entity(*e, "perimeter", -1., by_region[region_of[s.first]].perimeters);
+        else
+            gcode += this->extrude_entity(*e, "infill");
+    }
+    (void)is_first_layer;
     return gcode;
 }
 

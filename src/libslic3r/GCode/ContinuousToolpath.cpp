@@ -212,14 +212,27 @@ Polylines order_polylines(const Polylines& input, const Params& params)
     return pls;
 }
 
-void order_entities(ExtrusionEntitiesPtr& entities, const Point& start, const Params& params)
+std::vector<std::pair<int, bool>> order_indices(const Polylines& endpoints, const Params& params)
 {
-    if (entities.size() < 2)
-        return;
+    std::vector<std::pair<int, bool>> seq;
+    if (endpoints.empty())
+        return seq;
+    std::vector<Move> moves = order(endpoints, params);
+    std::vector<char> placed(endpoints.size(), 0);
+    for (const Move& m : moves) {
+        if (m.src_index < 0 || m.src_index >= int(endpoints.size()) || placed[m.src_index])
+            continue;
+        placed[m.src_index] = 1;
+        seq.emplace_back(m.src_index, m.reversed);
+    }
+    for (size_t i = 0; i < endpoints.size(); ++i)   // safety: cover any missed item
+        if (! placed[i]) seq.emplace_back(int(i), false);
+    return seq;
+}
 
-    // For chaining we only need each entity's endpoints (as_polyline() throws on
-    // ExtrusionEntityCollection). A 2-point segment first->last is enough to build
-    // the endpoint graph and decide ordering / reversal.
+static Polylines endpoint_segments(const ExtrusionEntitiesPtr& entities)
+{
+    // as_polyline() throws on ExtrusionEntityCollection; endpoints suffice for chaining.
     Polylines polys;
     polys.reserve(entities.size());
     for (const ExtrusionEntity* e : entities) {
@@ -228,29 +241,23 @@ void order_entities(ExtrusionEntitiesPtr& entities, const Point& start, const Pa
         pl.points.push_back(e->last_point());
         polys.push_back(std::move(pl));
     }
+    return polys;
+}
 
-    Params p = params;
-    // entities are pre-clipped real toolpaths; keep single-path bridging behavior.
-    std::vector<Move> moves = order(polys, p);
-
+void order_entities(ExtrusionEntitiesPtr& entities, const Point& start, const Params& params)
+{
+    if (entities.size() < 2)
+        return;
+    auto seq = order_indices(endpoint_segments(entities), params);
     ExtrusionEntitiesPtr ordered;
     ordered.reserve(entities.size());
-    std::vector<char> placed(entities.size(), 0);
-    for (const Move& m : moves) {
-        if (m.src_index < 0 || m.src_index >= int(entities.size()) || placed[m.src_index])
-            continue;                       // bridges (src_index<0) need no entity
-        placed[m.src_index] = 1;
-        ExtrusionEntity* e = entities[m.src_index];
-        if (m.reversed)
-            e->reverse();
+    for (const auto& s : seq) {
+        ExtrusionEntity* e = entities[s.first];
+        if (s.second) e->reverse();
         ordered.push_back(e);
     }
-    // safety: append anything the tour didn't cover (shouldn't happen)
-    for (size_t i = 0; i < entities.size(); ++i)
-        if (! placed[i]) ordered.push_back(entities[i]);
-
     entities = std::move(ordered);
-    (void)start;   // start point reserved for future seam-aware ordering
+    (void)start;
 }
 
 } // namespace ContinuousToolpath

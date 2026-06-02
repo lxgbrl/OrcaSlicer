@@ -50,6 +50,12 @@ Polylines order_polylines(const Polylines& input, const Params& params);
 // This is the architecturally-clean path: ordering only, native G-code emission.
 void order_entities(ExtrusionEntitiesPtr& entities, const Point& start, const Params& params);
 
+// Lower-level: given each item's endpoints (segment first->last per item), return the
+// continuity-optimal visit order as (item_index, reversed) pairs. Bridges are omitted
+// (the caller emits travels/connectors). Lets callers keep parallel metadata (region,
+// role) aligned with the reordering.
+std::vector<std::pair<int, bool>> order_indices(const Polylines& endpoints, const Params& params);
+
 } // namespace ContinuousToolpath
 } // namespace Slic3r
 
