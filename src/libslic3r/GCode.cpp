@@ -6209,14 +6209,38 @@ std::string GCode::extrude_island_continuous(const Print& print, const std::vect
     }
     auto seq = ContinuousToolpath::order_indices(eps, ctp);
 
+    // Thin extruded "sacrificial" bridges connect consecutive pieces across SHORT
+    // gaps, so the layer prints as one continuous extruded line (no travel, no
+    // retraction). Longer gaps (e.g. across a hole) are left as travels by
+    // extrude_entity. Kept alive in `bridges` until the gcode string is built.
+    const double layer_h   = (m_layer != nullptr) ? m_layer->height : 0.2;
+    const double bridge_w  = 0.3;                              // mm, thin
+    const double max_gap2  = double(ctp.sacrificial_max) * double(ctp.sacrificial_max);
+    std::vector<std::unique_ptr<ExtrusionPath>> bridges;
+    bool  have_prev = false;
+    Point prev_last;
+
     for (const auto& s : seq) {
         ExtrusionEntity* e = ents[s.first];
         if (s.second) e->reverse();
+        const Point f = e->first_point();
+        if (have_prev && ctp.single_path) {
+            const double d2 = (prev_last - f).cast<double>().squaredNorm();
+            if (d2 > double(SCALED_EPSILON) * double(SCALED_EPSILON) && d2 <= max_gap2) {
+                auto br = std::make_unique<ExtrusionPath>(erCustom, bridge_w * layer_h, float(bridge_w), float(layer_h));
+                br->polyline.points = { Point3(coord_t(prev_last.x()), coord_t(prev_last.y()), coord_t(0)),
+                                        Point3(coord_t(f.x()), coord_t(f.y()), coord_t(0)) };
+                gcode += this->extrude_entity(*br, "continuous bridge");
+                bridges.push_back(std::move(br));
+            }
+        }
         m_config.apply(print.get_print_region(region_of[s.first]).config());
         if (is_perim[s.first])
             gcode += this->extrude_entity(*e, "perimeter", -1., by_region[region_of[s.first]].perimeters);
         else
             gcode += this->extrude_entity(*e, "infill");
+        prev_last  = e->last_point();
+        have_prev  = true;
     }
     (void)is_first_layer;
     return gcode;
