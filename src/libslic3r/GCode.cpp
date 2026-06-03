@@ -6230,7 +6230,12 @@ std::string GCode::extrude_island_continuous(const Print& print, const std::vect
                 auto br = std::make_unique<ExtrusionPath>(erCustom, bridge_w * layer_h, float(bridge_w), float(layer_h));
                 br->polyline.points = { Point3(coord_t(prev_last.x()), coord_t(prev_last.y()), coord_t(0)),
                                         Point3(coord_t(f.x()), coord_t(f.y()), coord_t(0)) };
-                gcode += this->extrude_entity(*br, "continuous bridge");
+                // erCustom has no speed mapping (would throw "Invalid speed"); pass an
+                // explicit speed for the bridge.
+                double bspeed = m_config.get_abs_value("sparse_infill_speed");
+                if (bspeed <= 0.) bspeed = m_config.get_abs_value("inner_wall_speed");
+                if (bspeed <= 0.) bspeed = 30.;
+                gcode += this->extrude_entity(*br, "continuous bridge", bspeed);
                 bridges.push_back(std::move(br));
             }
         }
