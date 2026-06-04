@@ -266,9 +266,9 @@ AboutDialog::AboutDialog()
     text_sizer_horiz->Add( 0, 0, 0, wxLEFT, FromDIP(20));
 
     std::vector<wxString> text_list;
-    text_list.push_back(_L("Open-source slicing stands on a tradition of collaboration and attribution. Slic3r, created by Alessandro Ranellucci and the RepRap community, laid the foundation. PrusaSlicer by Prusa Research built on that work, Bambu Studio forked from PrusaSlicer, and SuperSlicer extended it with community-driven enhancements. Each project carried the work of its predecessors forward, crediting those who came before."));
-    text_list.push_back(_L("OrcaSlicer began in that same spirit, drawing from PrusaSlicer, BambuStudio, SuperSlicer, and CuraSlicer. But it has since grown far beyond its origins — introducing advanced calibration tools, precise wall and seam control and hundreds of other features."));
-    text_list.push_back(_L("Today, OrcaSlicer is the most widely used and actively developed open-source slicer in the 3D printing community. Many of its innovations have been adopted by other slicers, making it a driving force for the entire industry."));
+    text_list.push_back(_L("Pixolid Slicer is a focused, standalone slicer built on top of OrcaSlicer — the most widely used open-source slicer in 3D printing. Through OrcaSlicer it inherits a deep open-source heritage: Slic3r by Alessandro Ranellucci and the RepRap community, PrusaSlicer by Prusa Research, Bambu Studio, and SuperSlicer. We are grateful to every contributor who carried this work forward."));
+    text_list.push_back(_L("On top of that foundation, Pixolid Slicer adds our own tools: a scriptable custom-infill engine (2D tile patterns, 3D TPMS / implicit fields, and Blender mesh cells) and a continuous, retraction-free toolpath mode tuned for soft materials such as TPU and clay."));
+    text_list.push_back(_L("Pixolid Slicer is developed by Pixolid. Full credit and thanks go to the OrcaSlicer project and its upstream lineage, whose open-source work makes Pixolid Slicer possible."));
 
     text_sizer->Add( 0, 0, 0, wxTOP, FromDIP(33));
     bool is_zh = wxGetApp().app_config->get("language") == "zh_CN";
@@ -311,7 +311,7 @@ AboutDialog::AboutDialog()
 
     copyright_hor_sizer->Add(copyright_ver_sizer, 0, wxLEFT, FromDIP(20));
 
-    wxStaticText *html_text = new wxStaticText(this, wxID_ANY, "Copyright(C) 2026 OrcaSlicer Pte Ltd All Rights Reserved", wxDefaultPosition, wxDefaultSize);
+    wxStaticText *html_text = new wxStaticText(this, wxID_ANY, "Copyright(C) 2026 Pixolid - based on OrcaSlicer. All Rights Reserved", wxDefaultPosition, wxDefaultSize);
     html_text->SetForegroundColour(wxColour(107, 107, 107));
 
     copyright_ver_sizer->Add(html_text, 0, wxALL , 0);
@@ -328,7 +328,8 @@ AboutDialog::AboutDialog()
               (boost::format(
               "<html>"
               "<body>"
-              "<p style=\"text-align:left\"><a style=\"color:#009789\" href=\"https://www.orcaslicer.com\">https://www.orcaslicer.com</ a></p>"
+              "<p style=\"text-align:left\"><a style=\"color:#009789\" href=\"https://pixolid.de\">https://pixolid.de</a>"
+              " &nbsp;|&nbsp; built on <a style=\"color:#009789\" href=\"https://github.com/SoftFever/OrcaSlicer\">OrcaSlicer</a></p>"
               "</body>"
               "</html>")
             ).str());

@@ -71,7 +71,9 @@ body
 
 #LeftBoard
 {
-	display: none;  /* shown by cloud_providers_info from backend */
+	/* Pixolid: standalone, no cloud. Keep the cloud/account sidebar hidden even when
+	   the backend reports cloud providers (overrides inline display set by JS). */
+	display: none !important;
 	border-right-width: 1px;
 	border-right-style: solid;
 	width:262px;
