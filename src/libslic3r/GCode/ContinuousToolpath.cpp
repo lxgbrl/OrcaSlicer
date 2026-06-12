@@ -84,24 +84,34 @@ std::vector<Move> order(const Polylines& input, const Params& params)
     // Must happen before the parity fix: bridges change degrees, so pairing the
     // odd nodes afterwards is what restores an Eulerian (all-even) graph.
     if (params.single_path) {
-        std::map<int, int> rep;
-        for (int n = 0; n < N; ++n) rep.emplace(dsu.find(n), n);
-        std::vector<int> reps;
-        for (auto& kv : rep) reps.push_back(kv.second);
-        std::vector<char> done(reps.size(), 0);
-        if (! reps.empty()) {
-            int cur = 0; done[0] = 1;
-            for (size_t step = 1; step < reps.size(); ++step) {
-                int best = -1; double bd = 0;
-                for (size_t j = 0; j < reps.size(); ++j) {
+        // Group nodes by component (before connectors change the DSU), then
+        // repeatedly attach the component whose CLOSEST NODE PAIR to the grown
+        // cluster is shortest. Pairing arbitrary representatives instead can
+        // pick connectors tens of mm long between chains that physically
+        // interleave a line-width apart.
+        std::map<int, std::vector<int>> comp_nodes;
+        for (int n = 0; n < N; ++n) comp_nodes[dsu.find(n)].push_back(n);
+        if (comp_nodes.size() > 1) {
+            std::vector<std::vector<int>> comps;
+            for (auto& kv : comp_nodes) comps.push_back(std::move(kv.second));
+            std::vector<char> done(comps.size(), 0);
+            std::vector<int>  cluster = comps[0];
+            done[0] = 1;
+            for (size_t step = 1; step < comps.size(); ++step) {
+                int    best_comp = -1, best_a = -1, best_b = -1;
+                double bd = 0;
+                for (size_t j = 0; j < comps.size(); ++j) {
                     if (done[j]) continue;
-                    if (dsu.find(reps[j]) == dsu.find(reps[cur])) { done[j] = 1; continue; }
-                    double d = dist2(nodes[reps[cur]], nodes[reps[j]]);
-                    if (best < 0 || d < bd) { bd = d; best = int(j); }
+                    for (int a : cluster)
+                        for (int b : comps[j]) {
+                            double d = dist2(nodes[a], nodes[b]);
+                            if (best_comp < 0 || d < bd) { bd = d; best_comp = int(j); best_a = a; best_b = b; }
+                        }
                 }
-                if (best < 0) break;
-                add_connector(reps[cur], reps[best]);
-                done[size_t(best)] = 1; cur = best;
+                if (best_comp < 0) break;
+                add_connector(best_a, best_b);
+                cluster.insert(cluster.end(), comps[size_t(best_comp)].begin(), comps[size_t(best_comp)].end());
+                done[size_t(best_comp)] = 1;
             }
         }
     }

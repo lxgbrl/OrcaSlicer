@@ -6220,10 +6220,39 @@ std::string GCode::extrude_island_continuous(const Print& print, const std::vect
     bool  have_prev = false;
     Point prev_last;
 
-    for (const auto& s : seq) {
+    // Loops must close fully: the seam-gap clipping would leave a gap at every
+    // perimeter, breaking the continuous line.
+    const bool was_loop_clipping = m_enable_loop_clipping;
+    m_enable_loop_clipping = false;
+
+    // Decide loop seam anchors BACK-TO-FRONT. A closed loop can be started
+    // anywhere (overriding the user's seam preference — continuity requires the
+    // seam at the junction) and it exits where it entered, so anchoring each
+    // loop at the point nearest to where the path continues makes consecutive
+    // wall seams stack up and converge on the next fixed entity (e.g. the
+    // infill entry), eliminating the long wall->infill hop.
+    std::vector<Point> start_pt(seq.size());
+    {
+        Point next_start;
+        bool  has_next = false;
+        for (int i = int(seq.size()) - 1; i >= 0; --i) {
+            ExtrusionEntity* e  = ents[seq[i].first];
+            ExtrusionLoop*   lp = dynamic_cast<ExtrusionLoop*>(e);
+            Point f = seq[i].second ? e->last_point() : e->first_point(); // start as emitted
+            if (lp != nullptr && has_next)
+                f = lp->polygon().point_projection(next_start);
+            start_pt[i]  = f;
+            next_start   = f;
+            has_next     = true;
+        }
+    }
+
+    for (size_t si = 0; si < seq.size(); ++si) {
+        const auto& s = seq[si];
         ExtrusionEntity* e = ents[s.first];
         if (s.second) e->reverse();
-        const Point f = e->first_point();
+        ExtrusionLoop* as_loop = dynamic_cast<ExtrusionLoop*>(e);
+        Point f = start_pt[si];
         if (have_prev && ctp.single_path) {
             const double d2 = (prev_last - f).cast<double>().squaredNorm();
             if (d2 > double(SCALED_EPSILON) * double(SCALED_EPSILON) && d2 <= max_gap2) {
@@ -6240,13 +6269,21 @@ std::string GCode::extrude_island_continuous(const Print& print, const std::vect
             }
         }
         m_config.apply(print.get_print_region(region_of[s.first]).config());
-        if (is_perim[s.first])
+        if (as_loop != nullptr) {
+            // Description must not be "perimeter": that routes through the seam
+            // placer (aligned/back seams), which would move the start away from
+            // the bridge end. split_at(f) starts the loop exactly at the anchor.
+            gcode += this->extrude_loop(*as_loop, "perimeter (continuous)", -1., by_region[region_of[s.first]].perimeters, &f);
+        } else if (is_perim[s.first])
             gcode += this->extrude_entity(*e, "perimeter", -1., by_region[region_of[s.first]].perimeters);
         else
             gcode += this->extrude_entity(*e, "infill");
-        prev_last  = e->last_point();
+        // Anchor the next bridge at the real nozzle position (seam split, loop
+        // closing and wipe all move it away from the entity's nominal endpoint).
+        prev_last  = this->last_pos();
         have_prev  = true;
     }
+    m_enable_loop_clipping = was_loop_clipping;
     (void)is_first_layer;
     return gcode;
 }
