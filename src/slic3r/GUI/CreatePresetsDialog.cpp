@@ -84,6 +84,21 @@ static const std::vector<std::string> printer_vendors =
      "Voron",              "Voxelab",
      "Vzbot",              "Wanhao",             "Z-Bolt"};
 
+// Vendors that build robot arms; shown in the vendor list only when the
+// "Robot arm" printer kind is selected. Their presets live in the
+// "RobotArms" system vendor (resources/profiles/RobotArms).
+static const std::set<std::string> robot_arm_vendors = {"Dobot", "Fanuc", "KUKA", "UFactory", "Universal Robots"};
+static const char *ROBOT_ARM_SYSTEM_VENDOR = "RobotArms";
+
+static wxArrayString filtered_printer_vendors(bool robot_arm)
+{
+    wxArrayString choices;
+    for (const std::string &vendor : printer_vendors)
+        if ((robot_arm_vendors.count(vendor) > 0) == robot_arm)
+            choices.Add(vendor);
+    return choices;
+}
+
 static const std::unordered_map<std::string, std::vector<std::string>> printer_model_map =
     {{"Anker",             {"Anker M5",                   "Anker M5 All-Metal Hot End", "Anker M5C"}},
      {"Dobot",             {"Dobot CR5",            "Dobot CR10",            "Dobot Magician"}},
@@ -1748,12 +1763,7 @@ wxBoxSizer *CreatePrinterPresetDialog::create_printer_item(wxWindow *parent)
     m_select_vendor            = new ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, NAME_OPTION_COMBOBOX_SIZE, 0, nullptr, wxCB_READONLY);
     m_select_vendor->SetValue(_L("Select Vendor"));
     m_select_vendor->SetLabelColor(DEFAULT_PROMPT_TEXT_COLOUR);
-    wxArrayString printer_vendor;
-    for (const std::string &vendor : printer_vendors) {
-        assert(printer_model_map.find(vendor) != printer_model_map.end());
-        printer_vendor.Add(vendor);
-    }
-    m_select_vendor->Set(printer_vendor);
+    m_select_vendor->Set(filtered_printer_vendors(false)); // standard FFF kind is the initial selection
     m_select_vendor->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent e) {
         m_select_vendor->SetLabelColor(*wxBLACK);
         std::string curr_selected_vendor = into_u8(m_select_vendor->GetStringSelection());
@@ -2008,6 +2018,14 @@ void CreatePrinterPresetDialog::update_printer_kind_ui()
     m_printer_info_sizer->Show(m_robot_workspace_sizer, robot, true);
     if (m_bed_shape_label)
         m_bed_shape_label->SetLabel(robot ? _L("Robot arm workspace") : _L("Rectangle"));
+    // Vendor list follows the kind: robot vendors only vs. everything else.
+    m_select_vendor->Set(filtered_printer_vendors(robot));
+    m_select_vendor->SetSelection(-1);
+    m_select_vendor->SetValue(_L("Select Vendor"));
+    m_select_vendor->SetLabelColor(DEFAULT_PROMPT_TEXT_COLOUR);
+    m_select_model->Set(wxArrayString());
+    m_select_model->SetValue(_L("Select Model"));
+    m_select_model->SetLabelColor(DEFAULT_PROMPT_TEXT_COLOUR);
     m_printer_info_panel->Layout();
     if (m_page1) {
         m_page1->Layout();
@@ -3080,9 +3098,45 @@ void CreatePrinterPresetDialog::show_page2()
 
 bool CreatePrinterPresetDialog::data_init()
 {
+    // The base-preset vendor list follows the printer kind: robot arms can only
+    // be based on the RobotArms system vendor, standard printers on the rest.
+    {
+        VendorMap     vendors;
+        wxArrayString all_choices = get_exist_vendor_choices(vendors);
+        wxArrayString filtered;
+        for (const wxString &choice : all_choices)
+            if ((into_u8(choice) == ROBOT_ARM_SYSTEM_VENDOR) == is_robot_arm())
+                filtered.Add(choice);
+        m_printer_vendor->Set(filtered);
+        if (is_robot_arm() && !filtered.empty()) {
+            m_printer_vendor->SetSelection(0); // only the RobotArms vendor remains
+            m_printer_vendor->SetLabelColor(*wxBLACK);
+        } else {
+            m_printer_vendor->SetSelection(-1);
+            m_printer_vendor->SetValue(_L("Select Vendor"));
+            m_printer_vendor->SetLabelColor(DEFAULT_PROMPT_TEXT_COLOUR);
+        }
+    }
+
     wxCommandEvent e;
     e.SetExtraLong(0);  // 0 means form last page,  1 means form cur combobox
     on_select_printer_model(e);
+
+    // Robot arm: preselect the base model matching the page-1 selection so the
+    // user can immediately press Create.
+    if (is_robot_arm()) {
+        const wxString prefix = from_u8(get_printer_model()) + " @";
+        for (unsigned int i = 0; i < m_printer_model->GetCount(); ++i) {
+            if (m_printer_model->GetString(i).StartsWith(prefix)) {
+                if ((int) i != m_printer_model->GetSelection()) {
+                    m_printer_model->SetSelection(i);
+                    wxCommandEvent ev;
+                    on_preset_model_value_change(ev);
+                }
+                break;
+            }
+        }
+    }
 
     auto get_nozzle_size_for_printer_model = [this](const std::string &model_name) -> size_t {
         auto iter = m_printer_name_to_preset.find(model_name);
