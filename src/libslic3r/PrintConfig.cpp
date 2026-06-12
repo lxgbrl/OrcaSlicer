@@ -790,6 +790,50 @@ void PrintConfigDef::init_common_params()
     def->mode = comSimple;
     def->set_default_value(new ConfigOptionFloat(100.0));
 
+    // Robot arm workspace parameters. They describe the arm's reachable area
+    // from which printable_area / bed_exclude_area polygons are derived;
+    // robot_reach_max > 0 marks the preset as a robot arm.
+    def = this->add("robot_reach_min", coFloat);
+    def->label = L("Robot minimum reach");
+    def->tooltip = L("Inner dead-zone radius around the robot arm base that the tool cannot reach.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
+    def = this->add("robot_reach_max", coFloat);
+    def->label = L("Robot maximum reach");
+    def->tooltip = L("Maximum reach radius of the robot arm. A value greater than zero marks this printer as a robot arm.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
+    def = this->add("robot_sweep_angle", coFloat);
+    def->label = L("Robot sweep angle");
+    def->tooltip = L("Angular range of the robot arm base joint. 360 means a full circle around the base.");
+    def->sidetext = L("°");
+    def->min = 0;
+    def->max = 360;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(360.));
+
+    def = this->add("robot_base_offset", coPoint);
+    def->label = L("Robot base position");
+    def->tooltip = L("Position of the robot arm base relative to the bed origin.");
+    def->sidetext = L("mm");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionPoint(Vec2d(0., 0.)));
+
+    def = this->add("robot_base_rotation", coFloat);
+    def->label = L("Robot base rotation");
+    def->tooltip = L("Orientation of the robot arm sweep bisector relative to the X axis.");
+    def->sidetext = L("°");
+    def->min = -360;
+    def->max = 360;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
     def           = this->add("extruder_printable_height", coFloats);
     def->label    = L("Extruder printable height");
     def->tooltip  = L("Maximum printable height of this extruder which is limited by mechanism of printer.");

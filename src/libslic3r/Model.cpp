@@ -3004,15 +3004,25 @@ void Model::setPrintSpeedTable(const DynamicPrintConfig& config, const PrintConf
     Pointfs excluse_area_points = print_config.bed_exclude_area.values;
     Polygons exclude_polys;
     Polygon exclude_poly;
-    for (int i = 0; i < excluse_area_points.size(); i++) {
-        auto pt = excluse_area_points[i];
-        exclude_poly.points.emplace_back(scale_(pt.x()), scale_(pt.y()));
-        if (i % 4 == 3) {  // exclude areas are always rectangle
-            exclude_polys.push_back(exclude_poly);
-            exclude_poly.points.clear();
+    if (excluse_area_points.size() % 4 != 0 || excluse_area_points.size() > 16) {
+        // Not rectangle-chunked (e.g. a robot arm dead-zone circle): all points form one polygon,
+        // matching get_bed_excluded_area().
+        for (const auto &pt : excluse_area_points)
+            exclude_poly.points.emplace_back(scale_(pt.x()), scale_(pt.y()));
+        exclude_polys.push_back(exclude_poly);
+    } else {
+        for (int i = 0; i < excluse_area_points.size(); i++) {
+            auto pt = excluse_area_points[i];
+            exclude_poly.points.emplace_back(scale_(pt.x()), scale_(pt.y()));
+            if (i % 4 == 3) {  // exclude areas are always rectangle
+                exclude_polys.push_back(exclude_poly);
+                exclude_poly.points.clear();
+            }
         }
     }
-    printSpeedMap.bed_poly = diff({ printSpeedMap.bed_poly }, exclude_polys)[0];
+    Polygons bed_with_excluded = diff({ printSpeedMap.bed_poly }, exclude_polys);
+    if (!bed_with_excluded.empty())
+        printSpeedMap.bed_poly = bed_with_excluded[0];
 }
 
 // find temperature of heatend and bed and matierial of an given extruder

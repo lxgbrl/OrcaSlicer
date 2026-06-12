@@ -418,6 +418,18 @@ void PartPlate::calc_bounding_boxes() const {
     //calc exclude area bounding box
     m_exclude_bounding_box.clear();
     BoundingBoxf3 exclude_bb;
+    if (m_exclude_area.size() % 4 != 0 || m_exclude_area.size() > 16) {
+        // Not rectangle-chunked (e.g. a robot arm dead-zone circle): one conservative
+        // bounding box over the whole polygon, matching get_bed_excluded_area().
+        for (const Vec2d &p : m_exclude_area)
+            exclude_bb.merge({ p(0), p(1), 0.0 });
+        if (!m_exclude_area.empty()) {
+            exclude_bb.max(2) = m_depth;
+            exclude_bb.min(2) = GROUND_Z;
+            m_exclude_bounding_box.emplace_back(exclude_bb);
+        }
+        return;
+    }
     for (int index = 0; index < m_exclude_area.size(); index ++) {
 		const Vec2d& p = m_exclude_area[index];
 

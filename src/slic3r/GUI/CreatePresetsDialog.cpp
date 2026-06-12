@@ -11,6 +11,7 @@
 #include <wx/utils.h>
 #include <boost/nowide/cstdio.hpp>
 #include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/RobotArmBed.hpp"
 #include "I18N.hpp"
 #include "GUI_App.hpp"
 #include "MsgDialog.hpp"
@@ -71,17 +72,25 @@ static const std::vector<std::string> filament_types = {"PLA",    "rPLA",  "PLA+
 static const std::vector<std::string> printer_vendors = 
     {"Anker",              "Anycubic",           "Artillery",          "Bambulab",           "BIQU",
      "Blocks",             "Chuanying",          "Co Print",           "Comgrow",            "CONSTRUCT3D",
-     "Creality",           "DeltaMaker",         "Dremel",             "Elegoo",             "Flashforge",
+     "Creality",           "DeltaMaker",         "Dobot",              "Dremel",             "Elegoo",
+     "Fanuc",              "Flashforge",
      "FLSun",              "FlyingBear",         "Folgertech",         "Geeetech",           "Ginger Additive",
-     "InfiMech",           "Kingroon",           "Lulzbot",            "MagicMaker",         "Mellow",
+     "InfiMech",           "Kingroon",           "KUKA",               "Lulzbot",            "MagicMaker",
+     "Mellow",
      "Orca Arena Printer", "Peopoly",            "Positron 3D",        "Prusa",              "Qidi",
-     "Raise3D",            "RatRig",             "re3D",               "RolohaunDesign",     "SecKit",             
-     "Snapmaker",          "Sovol",              "Thinker X400",       "Tronxy",             "TwoTrees",           
-     "UltiMaker",          "Vivedino",           "Volumic",            "Voron",              "Voxelab",            
+     "Raise3D",            "RatRig",             "re3D",               "RolohaunDesign",     "SecKit",
+     "Snapmaker",          "Sovol",              "Thinker X400",       "Tronxy",             "TwoTrees",
+     "UFactory",           "UltiMaker",          "Universal Robots",   "Vivedino",           "Volumic",
+     "Voron",              "Voxelab",
      "Vzbot",              "Wanhao",             "Z-Bolt"};
 
 static const std::unordered_map<std::string, std::vector<std::string>> printer_model_map =
     {{"Anker",             {"Anker M5",                   "Anker M5 All-Metal Hot End", "Anker M5C"}},
+     {"Dobot",             {"Dobot CR5",            "Dobot CR10",            "Dobot Magician"}},
+     {"Fanuc",             {"Fanuc LR Mate 200iD"}},
+     {"KUKA",              {"KUKA KR6 R900",        "KUKA KR10 R1100"}},
+     {"UFactory",          {"UFactory xArm 5",      "UFactory xArm 6",       "UFactory xArm 7",       "UFactory Lite 6"}},
+     {"Universal Robots",  {"UR3e",                 "UR5e",                  "UR10e",                 "UR16e"}},
      {"Anycubic",          {"Anycubic i3 Mega S",    "Anycubic Chiron",       "Anycubic Vyper",        "Anycubic Kobra",        "Anycubic Kobra Max",
                             "Anycubic Kobra Plus",   "Anycubic 4Max Pro",     "Anycubic 4Max Pro 2",   "Anycubic Kobra 2",      "Anycubic Kobra 2 Plus",
                             "Anycubic Kobra 2 Max",  "Anycubic Kobra 2 Pro",  "Anycubic Kobra 2 Neo",  "Anycubic Kobra 3",      "Anycubic Kobra 3 Max", "Anycubic Kobra S1", "Anycubic Predator", }},
@@ -1683,9 +1692,15 @@ void CreatePrinterPresetDialog::create_printer_page1(wxWindow *parent)
     m_printer_info_panel = new wxPanel(parent);
     m_printer_info_panel->SetBackgroundColour(*wxWHITE);
     m_printer_info_sizer = new wxBoxSizer(wxVERTICAL);
+    m_printer_info_sizer->Add(create_printer_kind_item(m_printer_info_panel), 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(5));
     m_printer_info_sizer->Add(create_bed_shape_item(m_printer_info_panel), 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(5));
-    m_printer_info_sizer->Add(create_bed_size_item(m_printer_info_panel), 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(5));
-    m_printer_info_sizer->Add(create_origin_item(m_printer_info_panel), 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(5));
+    m_bed_size_sizer = create_bed_size_item(m_printer_info_panel);
+    m_printer_info_sizer->Add(m_bed_size_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(5));
+    m_bed_origin_sizer = create_origin_item(m_printer_info_panel);
+    m_printer_info_sizer->Add(m_bed_origin_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(5));
+    m_robot_workspace_sizer = create_robot_workspace_item(m_printer_info_panel);
+    m_printer_info_sizer->Add(m_robot_workspace_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(5));
+    m_printer_info_sizer->Show(m_robot_workspace_sizer, false, true);
     m_printer_info_sizer->Add(create_hot_bed_stl_item(m_printer_info_panel), 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(5));
     m_printer_info_sizer->Add(create_hot_bed_svg_item(m_printer_info_panel), 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(5));
     m_printer_info_sizer->Add(create_max_print_height_item(m_printer_info_panel), 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(5));
@@ -1950,11 +1965,96 @@ wxBoxSizer *CreatePrinterPresetDialog::create_bed_shape_item(wxWindow *parent)
     horizontal_sizer->Add(optionSizer, 0, wxEXPAND | wxALL, FromDIP(10));
 
     wxBoxSizer *  bed_shape_sizer       = new wxBoxSizer(wxVERTICAL);
-    wxStaticText *static_bed_shape_text = new wxStaticText(parent, wxID_ANY, _L("Rectangle"), wxDefaultPosition, wxDefaultSize);
-    bed_shape_sizer->Add(static_bed_shape_text, 0, wxEXPAND | wxALL, 0);
+    m_bed_shape_label = new wxStaticText(parent, wxID_ANY, _L("Rectangle"), wxDefaultPosition, wxDefaultSize);
+    bed_shape_sizer->Add(m_bed_shape_label, 0, wxEXPAND | wxALL, 0);
     horizontal_sizer->Add(bed_shape_sizer, 0, wxEXPAND | wxALL, FromDIP(10));
 
     return horizontal_sizer;
+}
+
+wxBoxSizer *CreatePrinterPresetDialog::create_printer_kind_item(wxWindow *parent)
+{
+    wxBoxSizer *horizontal_sizer = new wxBoxSizer(wxHORIZONTAL);
+
+    wxBoxSizer *  optionSizer      = new wxBoxSizer(wxVERTICAL);
+    wxStaticText *static_type_text = new wxStaticText(parent, wxID_ANY, _L("Printer Kind"), wxDefaultPosition, wxDefaultSize);
+    optionSizer->Add(static_type_text, 0, wxEXPAND | wxALL, 0);
+    optionSizer->SetMinSize(OPTION_SIZE);
+    horizontal_sizer->Add(optionSizer, 0, wxEXPAND | wxALL, FromDIP(10));
+
+    m_printer_kind = new ComboBox(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, NAME_OPTION_COMBOBOX_SIZE, 0, nullptr, wxCB_READONLY);
+    m_printer_kind->Append(_L("Standard FFF printer"));
+    m_printer_kind->Append(_L("Robot arm"));
+    m_printer_kind->SetSelection(0);
+    m_printer_kind->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent &e) {
+        update_printer_kind_ui();
+        e.Skip();
+    });
+    horizontal_sizer->Add(m_printer_kind, 0, wxEXPAND | wxALL, FromDIP(10));
+
+    return horizontal_sizer;
+}
+
+bool CreatePrinterPresetDialog::is_robot_arm() const
+{
+    return m_printer_kind != nullptr && m_printer_kind->GetSelection() == 1;
+}
+
+void CreatePrinterPresetDialog::update_printer_kind_ui()
+{
+    const bool robot = is_robot_arm();
+    m_printer_info_sizer->Show(m_bed_size_sizer, !robot, true);
+    m_printer_info_sizer->Show(m_bed_origin_sizer, !robot, true);
+    m_printer_info_sizer->Show(m_robot_workspace_sizer, robot, true);
+    if (m_bed_shape_label)
+        m_bed_shape_label->SetLabel(robot ? _L("Robot arm workspace") : _L("Rectangle"));
+    m_printer_info_panel->Layout();
+    if (m_page1) {
+        m_page1->Layout();
+        m_page1->FitInside();
+    }
+    Layout();
+    Fit();
+}
+
+wxBoxSizer *CreatePrinterPresetDialog::create_robot_workspace_item(wxWindow *parent)
+{
+    auto make_input = [this, parent](TextInput *&input, const wxString &label, const wxString &value, wxBoxSizer *row) {
+        wxBoxSizer *  cell = new wxBoxSizer(wxVERTICAL);
+        wxStaticText *text = new wxStaticText(parent, wxID_ANY, label, wxDefaultPosition, wxDefaultSize);
+        input              = new TextInput(parent, value, _L("mm"), wxEmptyString, wxDefaultPosition, PRINTER_SPACE_SIZE, wxTE_PROCESS_ENTER);
+        wxTextValidator validator(wxFILTER_NUMERIC);
+        input->GetTextCtrl()->SetValidator(validator);
+        cell->Add(text, 0, wxEXPAND | wxLEFT, FromDIP(5));
+        cell->Add(input, 0, wxEXPAND | wxLEFT, FromDIP(5));
+        row->Add(cell, 0, wxEXPAND | wxALL, FromDIP(5));
+    };
+
+    wxBoxSizer *vertical_sizer = new wxBoxSizer(wxVERTICAL);
+
+    wxBoxSizer *  reach_row   = new wxBoxSizer(wxHORIZONTAL);
+    wxBoxSizer *  optionSizer = new wxBoxSizer(wxVERTICAL);
+    wxStaticText *option_text = new wxStaticText(parent, wxID_ANY, _L("Robot Workspace"), wxDefaultPosition, wxDefaultSize);
+    optionSizer->Add(option_text, 0, wxEXPAND | wxALL, 0);
+    optionSizer->SetMinSize(OPTION_SIZE);
+    reach_row->Add(optionSizer, 0, wxEXPAND | wxALL, FromDIP(10));
+    make_input(m_robot_reach_min_input, _L("Min reach"), "150", reach_row);
+    make_input(m_robot_reach_max_input, _L("Max reach"), "850", reach_row);
+    make_input(m_robot_sweep_input, _L("Sweep angle (°)"), "360", reach_row);
+    vertical_sizer->Add(reach_row, 0, wxEXPAND, 0);
+
+    wxBoxSizer *base_row          = new wxBoxSizer(wxHORIZONTAL);
+    wxBoxSizer *base_option_sizer = new wxBoxSizer(wxVERTICAL);
+    wxStaticText *base_text       = new wxStaticText(parent, wxID_ANY, _L("Robot Base"), wxDefaultPosition, wxDefaultSize);
+    base_option_sizer->Add(base_text, 0, wxEXPAND | wxALL, 0);
+    base_option_sizer->SetMinSize(OPTION_SIZE);
+    base_row->Add(base_option_sizer, 0, wxEXPAND | wxALL, FromDIP(10));
+    make_input(m_robot_base_x_input, _L("Position X"), "0", base_row);
+    make_input(m_robot_base_y_input, _L("Position Y"), "0", base_row);
+    make_input(m_robot_base_rot_input, _L("Rotation (°)"), "0", base_row);
+    vertical_sizer->Add(base_row, 0, wxEXPAND, 0);
+
+    return vertical_sizer;
 }
 
 wxBoxSizer *CreatePrinterPresetDialog::create_bed_size_item(wxWindow *parent)
@@ -3243,6 +3343,19 @@ bool CreatePrinterPresetDialog::save_printable_area_config(Preset *preset)
     DynamicPrintConfig &config                     = preset->config;
 
     if (curr_selected_printer_type == m_create_type.create_printer) {
+        if (is_robot_arm()) {
+            RobotArmWorkspace ws;
+            if (!read_robot_workspace(ws) || !robot_workspace_valid(ws)) { return false; }
+            config.set_key_value("printable_area", new ConfigOptionPoints(robot_workspace_printable_area(ws)));
+            Pointfs exclude_pts = robot_workspace_exclude_area(ws);
+            if (!exclude_pts.empty())
+                config.set_key_value("bed_exclude_area", new ConfigOptionPoints(exclude_pts));
+            config.set_key_value("robot_reach_min", new ConfigOptionFloat(ws.reach_min));
+            config.set_key_value("robot_reach_max", new ConfigOptionFloat(ws.reach_max));
+            config.set_key_value("robot_sweep_angle", new ConfigOptionFloat(ws.sweep_deg));
+            config.set_key_value("robot_base_offset", new ConfigOptionPoint(ws.base_offset));
+            config.set_key_value("robot_base_rotation", new ConfigOptionFloat(ws.base_rot_deg));
+        } else {
         double x = 0;
         m_bed_size_x_input->GetTextCtrl()->GetValue().ToDouble(&x);
         double y = 0;
@@ -3265,6 +3378,7 @@ bool CreatePrinterPresetDialog::save_printable_area_config(Preset *preset)
         // range check end
         std::vector<Vec2d> points = {Vec2d(x0, y0), Vec2d(x1, y0), Vec2d(x1, y1), Vec2d(x0, y1)};
         config.set_key_value("printable_area", new ConfigOptionPoints(points));
+        }
 
         double max_print_height = 0;
         m_print_height_input->GetTextCtrl()->GetValue().ToDouble(&max_print_height);
@@ -3287,7 +3401,24 @@ bool CreatePrinterPresetDialog::save_printable_area_config(Preset *preset)
     return true;
 }
 
+bool CreatePrinterPresetDialog::read_robot_workspace(Slic3r::RobotArmWorkspace &ws) const
+{
+    double base_x = 0, base_y = 0;
+    if (!m_robot_reach_min_input->GetTextCtrl()->GetValue().ToDouble(&ws.reach_min)) return false;
+    if (!m_robot_reach_max_input->GetTextCtrl()->GetValue().ToDouble(&ws.reach_max)) return false;
+    if (!m_robot_sweep_input->GetTextCtrl()->GetValue().ToDouble(&ws.sweep_deg)) return false;
+    if (!m_robot_base_x_input->GetTextCtrl()->GetValue().ToDouble(&base_x)) return false;
+    if (!m_robot_base_y_input->GetTextCtrl()->GetValue().ToDouble(&base_y)) return false;
+    if (!m_robot_base_rot_input->GetTextCtrl()->GetValue().ToDouble(&ws.base_rot_deg)) return false;
+    ws.base_offset = Vec2d(base_x, base_y);
+    return true;
+}
+
 bool CreatePrinterPresetDialog::check_printable_area() {
+    if (is_robot_arm()) {
+        RobotArmWorkspace ws;
+        return read_robot_workspace(ws) && robot_workspace_valid(ws);
+    }
     double x = 0;
     m_bed_size_x_input->GetTextCtrl()->GetValue().ToDouble(&x);
     double y = 0;
@@ -3341,7 +3472,11 @@ bool CreatePrinterPresetDialog::validate_input_valid()
         }
 
         if (check_printable_area() == false) {
-            MessageDialog dlg(this, _L("Please check bed printable shape and origin input."), wxString(SLIC3R_APP_FULL_NAME) + " - " + _L("Info"), wxYES | wxYES_DEFAULT | wxCENTRE);
+            MessageDialog dlg(this,
+                              is_robot_arm() ?
+                                  _L("Please check the robot workspace input: max reach must be greater than min reach, and the sweep angle must be between 0 and 360 degrees.") :
+                                  _L("Please check bed printable shape and origin input."),
+                              wxString(SLIC3R_APP_FULL_NAME) + " - " + _L("Info"), wxYES | wxYES_DEFAULT | wxCENTRE);
             dlg.ShowModal();
             return false;
         }

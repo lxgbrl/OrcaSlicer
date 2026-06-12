@@ -374,6 +374,8 @@ set(lisbslic3r_sources
     ProjectTask.hpp
     QuadricEdgeCollapse.cpp
     QuadricEdgeCollapse.hpp
+    RobotArmBed.cpp
+    RobotArmBed.hpp
     Semver.cpp
     Shape/TextShape.cpp
     Shape/TextShape.hpp

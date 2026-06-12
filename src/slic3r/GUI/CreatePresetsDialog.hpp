@@ -15,6 +15,9 @@
 #include "ParamsDialog.hpp"
 
 namespace Slic3r {
+
+struct RobotArmWorkspace;
+
 namespace GUI {
 
 class CreateFilamentPresetDialog : public DPIDialog
@@ -107,8 +110,10 @@ protected:
     wxBoxSizer *create_type_item(wxWindow *parent);
     wxBoxSizer *create_printer_item(wxWindow *parent);
     wxBoxSizer *create_nozzle_diameter_item(wxWindow *parent);
+    wxBoxSizer *create_printer_kind_item(wxWindow *parent);
     wxBoxSizer *create_bed_shape_item(wxWindow *parent);
     wxBoxSizer *create_bed_size_item(wxWindow *parent);
+    wxBoxSizer *create_robot_workspace_item(wxWindow *parent);
     wxBoxSizer *create_origin_item(wxWindow *parent);
     wxBoxSizer *create_hot_bed_stl_item(wxWindow *parent);
     wxBoxSizer *create_hot_bed_svg_item(wxWindow *parent);
@@ -136,6 +141,9 @@ protected:
     void          clear_preset_combobox();
     bool          save_printable_area_config(Preset *preset);
     bool          check_printable_area();
+    bool          is_robot_arm() const;
+    bool          read_robot_workspace(Slic3r::RobotArmWorkspace &ws) const;
+    void          update_printer_kind_ui();
     bool          validate_input_valid();
     void          load_texture();
     void          load_model_stl();
@@ -198,6 +206,17 @@ private:
     TextInput *                                        m_bed_origin_x_input             = nullptr;
     TextInput *                                        m_bed_origin_y_input             = nullptr;
     TextInput *                                        m_print_height_input             = nullptr;
+    ComboBox *                                         m_printer_kind                   = nullptr;
+    wxStaticText *                                     m_bed_shape_label                = nullptr;
+    TextInput *                                        m_robot_reach_min_input          = nullptr;
+    TextInput *                                        m_robot_reach_max_input          = nullptr;
+    TextInput *                                        m_robot_sweep_input              = nullptr;
+    TextInput *                                        m_robot_base_x_input             = nullptr;
+    TextInput *                                        m_robot_base_y_input             = nullptr;
+    TextInput *                                        m_robot_base_rot_input           = nullptr;
+    wxBoxSizer *                                       m_bed_size_sizer                 = nullptr;
+    wxBoxSizer *                                       m_bed_origin_sizer               = nullptr;
+    wxBoxSizer *                                       m_robot_workspace_sizer          = nullptr;
     wxGridSizer *                                      m_filament_preset_template_sizer = nullptr;
     wxGridSizer *                                      m_process_preset_template_sizer  = nullptr;
     wxPanel *                                          m_filament_preset_panel          = nullptr;

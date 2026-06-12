@@ -1,0 +1,11 @@
+{
+    "type": "machine_model",
+    "name": "UFactory xArm 5",
+    "model_id": "RA05",
+    "nozzle_diameter": "0.4",
+    "machine_tech": "FFF",
+    "family": "RobotArms",
+    "bed_model": "",
+    "bed_texture": "",
+    "default_materials": "Generic PLA @System;Generic PETG @System;Generic TPU @System"
+}
