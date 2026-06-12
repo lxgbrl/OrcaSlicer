@@ -81,13 +81,13 @@ static const std::vector<std::string> printer_vendors =
      "Raise3D",            "RatRig",             "re3D",               "RolohaunDesign",     "SecKit",
      "Snapmaker",          "Sovol",              "Thinker X400",       "Tronxy",             "TwoTrees",
      "UFactory",           "UltiMaker",          "Universal Robots",   "Vivedino",           "Volumic",
-     "Voron",              "Voxelab",
+     "Voron",              "Voxelab",            "Waveshare",
      "Vzbot",              "Wanhao",             "Z-Bolt"};
 
 // Vendors that build robot arms; shown in the vendor list only when the
 // "Robot arm" printer kind is selected. Their presets live in the
 // "RobotArms" system vendor (resources/profiles/RobotArms).
-static const std::set<std::string> robot_arm_vendors = {"Dobot", "Fanuc", "KUKA", "UFactory", "Universal Robots"};
+static const std::set<std::string> robot_arm_vendors = {"Dobot", "Fanuc", "KUKA", "UFactory", "Universal Robots", "Waveshare"};
 static const char *ROBOT_ARM_SYSTEM_VENDOR = "RobotArms";
 
 static wxArrayString filtered_printer_vendors(bool robot_arm)
@@ -106,6 +106,7 @@ static const std::unordered_map<std::string, std::vector<std::string>> printer_m
      {"KUKA",              {"KUKA KR6 R900",        "KUKA KR10 R1100"}},
      {"UFactory",          {"UFactory xArm 5",      "UFactory xArm 6",       "UFactory xArm 7",       "UFactory Lite 6"}},
      {"Universal Robots",  {"UR3e",                 "UR5e",                  "UR10e",                 "UR16e"}},
+     {"Waveshare",         {"Waveshare RoArm-M3"}},
      {"Anycubic",          {"Anycubic i3 Mega S",    "Anycubic Chiron",       "Anycubic Vyper",        "Anycubic Kobra",        "Anycubic Kobra Max",
                             "Anycubic Kobra Plus",   "Anycubic 4Max Pro",     "Anycubic 4Max Pro 2",   "Anycubic Kobra 2",      "Anycubic Kobra 2 Plus",
                             "Anycubic Kobra 2 Max",  "Anycubic Kobra 2 Pro",  "Anycubic Kobra 2 Neo",  "Anycubic Kobra 3",      "Anycubic Kobra 3 Max", "Anycubic Kobra S1", "Anycubic Predator", }},

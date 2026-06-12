@@ -116,6 +116,7 @@
         "Dobot Magician 0.4 nozzle",
         "KUKA KR6 R900 0.4 nozzle",
         "KUKA KR10 R1100 0.4 nozzle",
-        "Fanuc LR Mate 200iD 0.4 nozzle"
+        "Fanuc LR Mate 200iD 0.4 nozzle",
+        "Waveshare RoArm-M3 0.4 nozzle"
     ]
 }

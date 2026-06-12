@@ -59,6 +59,10 @@
         {
             "name": "Fanuc LR Mate 200iD",
             "sub_path": "machine/Fanuc LR Mate 200iD.json"
+        },
+        {
+            "name": "Waveshare RoArm-M3",
+            "sub_path": "machine/Waveshare RoArm-M3.json"
         }
     ],
     "process_list": [
@@ -156,6 +160,10 @@
         {
             "name": "Fanuc LR Mate 200iD 0.4 nozzle",
             "sub_path": "machine/Fanuc LR Mate 200iD 0.4 nozzle.json"
+        },
+        {
+            "name": "Waveshare RoArm-M3 0.4 nozzle",
+            "sub_path": "machine/Waveshare RoArm-M3 0.4 nozzle.json"
         }
     ]
 }
