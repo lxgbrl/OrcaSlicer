@@ -394,7 +394,9 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
     default:
     case GUI_App::EAppMode::Editor:
         m_taskbar_icon = std::make_unique<OrcaSlicerTaskBarIcon>(wxTBI_DOCK);
-        m_taskbar_icon->SetIcon(wxIcon(Slic3r::var("OrcaSlicer-mac_256px.ico"), wxBITMAP_TYPE_ICO), "OrcaSlicer");
+        // Pixolid: dock / cmd-tab icon. Use the Pixolid PNG (OrcaSlicer_192px.png was
+        // replaced with the Pixolid mark) instead of the old Orca .ico.
+        m_taskbar_icon->SetIcon(wxIcon(Slic3r::var("OrcaSlicer_192px.png"), wxBITMAP_TYPE_PNG), SLIC3R_APP_NAME);
         break;
     case GUI_App::EAppMode::GCodeViewer:
         break;

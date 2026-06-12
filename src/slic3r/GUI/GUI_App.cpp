@@ -5444,6 +5444,11 @@ void maybe_attach_updater_signature(Http& http, const std::string& canonical_que
 void GUI_App::check_new_version_sf(bool show_tips, int by_user)
 {
     AppConfig* app_config = wxGetApp().app_config;
+    // Pixolid: standalone build. Do NOT poll OrcaSlicer's release feed — it would
+    // notify users to install OrcaSlicer over Pixolid. Disabled unless the user
+    // explicitly opts in via the (absent-by-default) "enable_update_check" key.
+    if (!app_config->get_bool("enable_update_check"))
+        return;
     bool       check_stable_only = app_config->get_bool("check_stable_update_only");
     auto version_check_url = app_config->version_check_url();
 
