@@ -230,9 +230,18 @@ Polylines FillCustomScripted::fill_mesh_3d(const FillParams& params, const Bound
         return {};
 
     // Scale mesh XY (mm) into a cell of side `cell` (mm). Build the cell-local
-    // polylines once, then tile them across the region bounding box.
-    const double sx = cell / mw;
-    const double sy = cell / mh;
+    // polylines once, then tile them across the region bounding box. With
+    // uniform scaling a non-square cross-section keeps its aspect (centered),
+    // otherwise it is stretched to fill the square cell.
+    double sx = cell / mw;
+    double sy = cell / mh;
+    double ox = 0.0, oy = 0.0;   // mm, centering offset in cell-local space
+    if (cfg && cfg->custom_infill_mesh_uniform_scale.value) {
+        const double s = std::min(sx, sy);
+        sx = sy = s;
+        ox = (cell - mw * s) * 0.5;
+        oy = (cell - mh * s) * 0.5;
+    }
     const coord_t cw = scale_(cell);
     const coord_t ch = scale_(cell);
 
@@ -241,8 +250,8 @@ Polylines FillCustomScripted::fill_mesh_3d(const FillParams& params, const Bound
         Polyline pl;
         pl.points.reserve(poly.points.size() + 1);
         for (const Point& p : poly.points)
-            pl.points.emplace_back(Point(scale_((unscaled(p.x()) - mx0) * sx),
-                                         scale_((unscaled(p.y()) - my0) * sy)));
+            pl.points.emplace_back(Point(scale_(ox + (unscaled(p.x()) - mx0) * sx),
+                                         scale_(oy + (unscaled(p.y()) - my0) * sy)));
         if (! pl.points.empty()) pl.points.push_back(pl.points.front());
         if (pl.points.size() >= 2) cell_polys.emplace_back(std::move(pl));
     };

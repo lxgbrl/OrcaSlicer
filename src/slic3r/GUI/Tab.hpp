@@ -471,6 +471,9 @@ public:
 	void		update() override;
 	void		clear_pages() override;
 	bool 		supports_printer_technology(const PrinterTechnology tech) const override { return tech == ptFFF; }
+	// Import an STL/OBJ as a custom-infill mesh cell: copy into the user
+	// custom_infill folder, refresh the pattern dropdown, and select it.
+	void		load_custom_infill_cell();
 
 private:
 	ogStaticText*	m_recommended_thin_wall_thickness_description_line = nullptr;

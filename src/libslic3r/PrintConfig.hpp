@@ -1120,6 +1120,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,                custom_infill_volume_cell))
     ((ConfigOptionFloat,                custom_infill_level))
     ((ConfigOptionFloat,                custom_infill_thickness))
+    ((ConfigOptionBool,                 custom_infill_mesh_uniform_scale))
     ((ConfigOptionFloat,                lateral_lattice_angle_1))
     ((ConfigOptionFloat,                lateral_lattice_angle_2))
     ((ConfigOptionFloat,                infill_overhang_angle))

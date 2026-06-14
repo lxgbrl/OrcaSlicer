@@ -3140,6 +3140,14 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(0.6));
 
+    def = this->add("custom_infill_mesh_uniform_scale", coBool);
+    def->label = L("Preserve mesh cell aspect");
+    def->category = L("Strength");
+    def->tooltip = L("For a Mesh cell, scale the cell uniformly so a non-square cross-section is not "
+                     "distorted into the square tiling grid. When off, the cell is stretched to fill the cell size.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
     def           = this->add("lateral_lattice_angle_1", coFloat);
     def->label    = L("Lateral lattice angle 1");
     def->category = L("Strength");

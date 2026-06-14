@@ -1009,6 +1009,7 @@ static std::vector<std::string> s_Preset_print_options{
     "custom_infill_volume_cell",
     "custom_infill_level",
     "custom_infill_thickness",
+    "custom_infill_mesh_uniform_scale",
     "lateral_lattice_angle_1",
     "lateral_lattice_angle_2",
     "infill_overhang_angle",

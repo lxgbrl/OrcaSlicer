@@ -630,6 +630,7 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig *config, co
     toggle_line("custom_infill_volume_cell", custom_volume3d);
     toggle_line("custom_infill_level",       custom_volume3d);
     toggle_line("custom_infill_thickness",   custom_volume3d);
+    toggle_line("custom_infill_mesh_uniform_scale", custom_volume3d);
 
     // If there is infill, enable/disable fill_multiline according to whether the pattern supports multiline infill.
     if (have_infill) {

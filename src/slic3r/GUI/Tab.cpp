@@ -2308,6 +2308,51 @@ void Tab::update_frequently_changed_parameters()
     }
 }
 
+void TabPrint::load_custom_infill_cell()
+{
+    wxFileDialog dlg(this, _L("Choose an STL/OBJ cell to use as custom infill:"), "", "",
+                     "Mesh files (*.stl;*.obj)|*.stl;*.STL;*.obj;*.OBJ",
+                     wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+
+    namespace fs = boost::filesystem;
+    fs::path src(dlg.GetPath().ToStdWstring());
+    fs::path dir = fs::path(Slic3r::data_dir()) / "custom_infill";
+    boost::system::error_code ec;
+    fs::create_directories(dir, ec);
+    fs::path dst = dir / src.filename();
+    fs::copy_file(src, dst, fs::copy_options::overwrite_existing, ec);
+    if (ec) {
+        MessageDialog(this, _L("Could not copy the mesh cell into the custom infill folder:") + "\n" +
+                                from_u8(ec.message()),
+                      _L("Custom infill"), wxICON_ERROR | wxOK).ShowModal();
+        return;
+    }
+    const std::string id = dst.stem().string();
+
+    // Refresh the dropdown so the new cell is listed and selectable.
+    PatternManager::instance().clear_cache();
+    auto* d = const_cast<ConfigOptionDef*>(print_config_def.get("custom_infill_pattern_id"));
+    if (d) {
+        d->enum_values = PatternManager::list_patterns();
+        d->enum_labels = d->enum_values;
+        if (Field* f = get_field("custom_infill_pattern_id"))
+            if (auto* choice = dynamic_cast<Choice*>(f))
+                choice->set_values(d->enum_values);
+    }
+
+    // Make the imported cell the active infill: Custom (scripted) pattern in 3D
+    // Volume mode, this pattern id.
+    DynamicPrintConfig new_conf = *m_config;
+    new_conf.set_key_value("sparse_infill_pattern", new ConfigOptionEnum<InfillPattern>(ipCustomScripted));
+    new_conf.set_key_value("custom_infill_mode", new ConfigOptionEnum<CustomInfillMode>(cimVolume3D));
+    new_conf.set_key_value("custom_infill_pattern_id", new ConfigOptionString(id));
+    load_config(new_conf);
+    update_dirty();
+    toggle_options();
+}
+
 //BBS: BBS new parameter list
 void TabPrint::build()
 {
@@ -2476,12 +2521,22 @@ void TabPrint::build()
             d->enum_labels = d->enum_values;
         }
         optgroup->append_single_option_line("custom_infill_mode");
-        optgroup->append_single_option_line("custom_infill_pattern_id");
+        // Pattern dropdown with a "Load cell STL…" button: pick an STL/OBJ, copy it
+        // into the user custom_infill folder, then select it as the active pattern.
+        create_line_with_widget(optgroup.get(), "custom_infill_pattern_id", "", [this](wxWindow* parent) {
+            auto* btn = new wxButton(parent, wxID_ANY, _L("Load cell STL…"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+            wxGetApp().UpdateDarkUI(btn);
+            auto* sizer = new wxBoxSizer(wxHORIZONTAL);
+            sizer->Add(btn, 0, wxALIGN_CENTER_VERTICAL);
+            btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { this->load_custom_infill_cell(); });
+            return sizer;
+        });
         optgroup->append_single_option_line("custom_infill_tile_width");
         optgroup->append_single_option_line("custom_infill_tile_height");
         optgroup->append_single_option_line("custom_infill_volume_cell");
         optgroup->append_single_option_line("custom_infill_level");
         optgroup->append_single_option_line("custom_infill_thickness");
+        optgroup->append_single_option_line("custom_infill_mesh_uniform_scale");
         optgroup->append_single_option_line("gyroid_optimized", "strength_settings_patterns#gyroid-optimized");
         optgroup->append_single_option_line("infill_direction", "strength_settings_infill#direction");
         optgroup->append_single_option_line("sparse_infill_rotate_template", "strength_settings_infill_rotation_template_metalanguage");

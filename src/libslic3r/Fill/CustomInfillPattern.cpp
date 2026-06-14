@@ -105,7 +105,7 @@ std::vector<std::string> PatternManager::list_patterns()
     if (! resources_dir().empty()) dirs.emplace_back(fs::path(resources_dir()) / "custom_infill");
     if (! data_dir().empty())      dirs.emplace_back(fs::path(data_dir()) / "custom_infill");
 
-    const std::set<std::string> exts = { ".tile", ".json", ".ini", ".cfg", ".txt" };
+    const std::set<std::string> exts = { ".tile", ".json", ".ini", ".cfg", ".txt", ".stl", ".obj" };
     for (const fs::path& dir : dirs) {
         boost::system::error_code ec;
         if (! fs::is_directory(dir, ec)) continue;
@@ -361,8 +361,21 @@ const VolumePattern& PatternManager::get_volume_pattern(const std::string& id)
         return it->second;
 
     VolumePattern vp;
-    std::string path = resolve_path(id, {".json", ".ini", ".txt", ".cfg"});
-    if (path.empty() || ! parse_volume_config(path, vp)) {
+    // A bare mesh file (STL/OBJ) is a first-class mesh cell — no JSON wrapper
+    // needed. Try it before the config formats so dropping a .stl just works.
+    std::string mesh_path = resolve_path(id, {".stl", ".obj"});
+    bool loaded = false;
+    if (! mesh_path.empty()) {
+        std::string ext = boost::filesystem::path(mesh_path).extension().string();
+        boost::to_lower(ext);
+        if (ext == ".stl" || ext == ".obj")
+            loaded = load_mesh_cell(mesh_path, vp);
+    }
+    if (! loaded) {
+        std::string path = resolve_path(id, {".json", ".ini", ".txt", ".cfg"});
+        loaded = ! path.empty() && parse_volume_config(path, vp);
+    }
+    if (! loaded) {
         // default gyroid
         vp = VolumePattern();
         vp.valid = true;
